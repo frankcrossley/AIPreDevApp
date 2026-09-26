@@ -10,7 +10,7 @@ Every bolt is done when:
 
 ---
 
-## [ ] Bolt 1 · Domain, lifecycle, checks, seed
+## [x] Bolt 1 · Domain, lifecycle, checks, seed
 **Goal.** The rules exist and are proven before there's any UI.
 **Scope.**
 - Next.js scaffold, Prisma schema from `docs/domain.md`, and the seeder with relative dates.
@@ -23,6 +23,13 @@ Every bolt is done when:
 - `seed._expected` reproduced exactly by tests.
 - The "no way to force Ready" test.
 **Demo.** `npm test` shows BILL-150 at Right thing 4 of 5 and Built right 5 of 8, with reasons.
+**Done.** `npm test` prints BILL-150's report (also `npm run checks`). ADR-009 to ADR-018 record the choices made.
+**Deferred.**
+- The API route test for "no way to force Ready" comes with the sign-off route in bolt 4. The state machine test and a static guard on story writes are in place.
+- The UI steps of `04-checks.feature` (clicking a failing line, the template editor, the sign-off button) are bolt 4.
+- Triage by a delegate isn't modelled; only the lead can triage.
+- Nothing runs `expireDrafts` on a schedule yet. The Scrum Master calls it once the right panel exists (bolt 3).
+- Seed question for the seed owner: BILL-152 is exported and signed off by Priya, but its lead is Dan and its checks now fail because the PRFAQ is a draft (ADR-015).
 
 ## [ ] Bolt 2 · The single workspace and the notebook
 **Goal.** The three-column screen, with a real editor.

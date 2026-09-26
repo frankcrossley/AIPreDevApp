@@ -1,0 +1,23 @@
+import { existsSync } from "node:fs";
+import { defineConfig } from "@playwright/test";
+
+const PORT = 3100;
+// End-to-end tests use their own database, reset and seeded before the server starts.
+const DATABASE_URL = "file:./prisma/e2e.db";
+// Cloud containers ship a Chromium build; use it when the pinned one isn't installed.
+const preinstalled = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+
+export default defineConfig({
+  testDir: "tests/e2e",
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    launchOptions: existsSync(preinstalled) ? { executablePath: preinstalled } : {},
+  },
+  webServer: {
+    command: `npm run db:reset && npx next dev -p ${PORT}`,
+    url: `http://localhost:${PORT}`,
+    env: { DATABASE_URL },
+    reuseExistingServer: false,
+    timeout: 180_000,
+  },
+});

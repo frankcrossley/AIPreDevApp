@@ -1,0 +1,232 @@
+// Prisma schema for the prototype. Mirrors docs/domain.md.
+// SQLite has no list columns: fields ending in `Json` hold JSON arrays (ADR-010),
+// mapped in src/server/snapshot.ts (read) and prisma/write-snapshot.ts (seed write) only.
+// There is no ready flag anywhere. Check results are computed on read (ADR-007).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Person {
+  id   String @id
+  name String
+  role String
+}
+
+model Template {
+  id                   String  @id
+  name                 String
+  sectionsJson         String
+  requiredSectionsJson String
+  teamCheckKeysJson    String
+  requiresPrfaq        Boolean
+  draftExpiryDays      Int
+  silenceRule          String
+  disagreementRule     String
+}
+
+model Epic {
+  id            String @id
+  key           String @unique
+  title         String
+  ownerId       String
+  deciderId     String
+  templateId    String
+  memberIdsJson String
+}
+
+model Story {
+  id          String    @id
+  key         String    @unique
+  epicId      String
+  title       String
+  leadId      String
+  templateId  String
+  /// Lifecycle state. Written only by src/server/lifecycle.ts.
+  state       String
+  promiseId   String?
+  estimate    Int?
+  hasUiChange Boolean   @default(false)
+  mockUri     String?
+  jiraKey     String?
+  sprint      String?
+  /// The lead's sign-off. Written only by src/server/lifecycle.ts, cleared by edits to agreed content.
+  signedOffBy String?
+  signedOffAt DateTime?
+}
+
+model Block {
+  id         String   @id
+  parentType String
+  parentId   String
+  section    String
+  order      Int
+  text       String
+  authorId   String
+  createdAt  DateTime
+  updatedAt  DateTime
+
+  @@index([parentType, parentId])
+}
+
+model Item {
+  id                    String  @id
+  parentType            String
+  parentId              String
+  blockId               String?
+  type                  String
+  text                  String
+  status                String
+  ownerId               String?
+  blocking              Boolean @default(false)
+  requiredStanceIdsJson String
+  stanceRound           Int     @default(1)
+
+  @@index([parentType, parentId])
+}
+
+model Stance {
+  id        String   @id
+  itemId    String
+  personId  String
+  value     String
+  reason    String?
+  round     Int
+  createdAt DateTime
+
+  @@index([itemId])
+}
+
+model Source {
+  id    String    @id
+  kind  String
+  title String
+  date  DateTime?
+  uri   String?
+}
+
+model Excerpt {
+  id       String  @id
+  sourceId String
+  text     String
+  locator  String
+  kind     String  @default("quote")
+  note     String?
+}
+
+model Citation {
+  id       String @id
+  fromType String
+  fromId   String
+  toType   String
+  toId     String
+
+  @@index([fromType, fromId])
+}
+
+model Draft {
+  id            String    @id
+  targetType    String?
+  targetId      String?
+  text          String
+  authorId      String?
+  excerptId     String?
+  sourceId      String?
+  createdAt     DateTime
+  expiresAt     DateTime
+  status        String
+  triagedBy     String?
+  triagedAt     DateTime?
+  resultBlockId String?
+}
+
+model HatNote {
+  id         String @id
+  hat        String
+  targetType String
+  targetId   String
+  kind       String
+  text       String
+  refsJson   String
+  status     String
+}
+
+model Criterion {
+  id          String  @id
+  storyId     String
+  given       String
+  when        String
+  then        String
+  origin      String
+  hat         String?
+  confirmedBy String?
+}
+
+model Prfaq {
+  id                     String  @id
+  epicId                 String  @unique
+  headline               String
+  subhead                String
+  problem                String
+  whatChanges            String
+  customerQuoteExcerptId String?
+  successMeasure         String?
+  state                  String
+}
+
+model PrfaqPromise {
+  id      String @id
+  prfaqId String
+  text    String
+}
+
+model FaqEntry {
+  id           String  @id
+  prfaqId      String
+  audience     String
+  question     String
+  answer       String?
+  storyIdsJson String
+  blocking     Boolean @default(false)
+}
+
+model ReadBack {
+  id         String   @id
+  epicId     String
+  personId   String
+  text       String
+  assessment String
+  note       String?
+  createdAt  DateTime
+}
+
+model Session {
+  id              String   @id
+  date            DateTime
+  lengthMinutes   Int
+  attendeeIdsJson String
+  agendaJson      String
+  status          String
+  captureText     String
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  type        String
+  actorId     String?
+  subjectType String
+  subjectId   String
+  payloadJson String
+  createdAt   DateTime @default(now())
+}
+
+/// Free-form settings, e.g. the simulated Jira config (ADR-004).
+model Setting {
+  key       String @id
+  valueJson String
+}

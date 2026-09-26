@@ -4,7 +4,7 @@ This pack is everything Claude Code needs to build the prototype, written the wa
 
 ## How to use it
 
-1. Create an empty repo and copy this pack into its root.
+1. Create an empty repo and copy this pack into its root. (Done: the pack lives at the root of this repo, next to the app.)
 2. **Rewrite `docs/prfaq.md` yourself.** It is a draft from our design conversations. The judgment calls are yours, not Claude's.
 3. Review the seed data in `seed/`. Realistic, messy data is what makes design-partner sessions feel real.
 4. Open Claude Code in the repo and run `/bolt 1`. It will read the pack, propose a plan in plan mode, and wait for your approval.
