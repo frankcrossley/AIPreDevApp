@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Design tokens from docs/screens.md */
+@theme {
+  --color-paper: #fdfcf9;
+  --color-panel: #ffffff;
+  --color-sunk: #f3f1ec;
+  --color-ink: #1f1f1d;
+  --color-line: #2b2a27;
+  --color-muted: #57544e;
+  --color-hairline: #e2dfd8;
+  --color-agreed: #1f4f8a;
+  --color-agreed-bg: #e3ecf7;
+  --color-alert: #b4460c;
+  --color-alert-bg: #fbe9dc;
+  --font-serif: "IBM Plex Serif", Georgia, serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+@layer base {
+  a {
+    color: var(--color-agreed);
+  }
+}
+
+[data-highlighted="true"] {
+  outline: 2px solid var(--color-alert);
+  outline-offset: 2px;
+  background: var(--color-alert-bg);
+  transition: background 0.3s;
+}
+
+.ProseMirror {
+  white-space: pre-wrap;
+}
