@@ -1,0 +1,17 @@
+Discovery call · Acme Corp · recorded via Teams · 38 min
+Attendees: Priya (product), two people from Acme (engineering lead, finance)
+
+11:02 Priya: How do you use the API day to day?
+11:20 Acme: Mostly batch jobs overnight, some spikes at quarter end.
+11:48 Acme: Quarter end is when we worry about the bill.
+12:15 Priya: Have you changed plans with us before?
+12:40 Acme: We upgraded on the 20th and paid the new price all month. Finance weren't happy.
+13:10 Acme: It took two emails to get a credit back.
+14:15 Priya: Would per-call pricing work for you?
+14:32 Acme: Only if we can see it in real time. We budget by department.
+15:20 Acme: Right now we export your invoice and split it by hand.
+16:02 Priya: What would stop you signing off a usage-based contract?
+17:05 Acme: A hard monthly cap would help us sign it off internally.
+18:30 Acme: And we'd want a notice before the cap is hit, not after.
+21:40 Acme: What discount could we get on a two-year deal?
+22:10 Priya: I'll take that one to our sales team.

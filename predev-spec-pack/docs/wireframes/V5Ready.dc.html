@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ready check and Jira sync</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1020px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; overflow: hidden; border: 1.5px solid #2b2a27">
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 40px 56px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-size: 13px; color: #57544e">BILL-142 / BILL-150</span>
+<h1 style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 32px; font-weight: 600">Ready check · Plan changes mid-cycle</h1>
+<div style="border: 1.5px solid #2b2a27; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; background: #f3f1ec; border-bottom: 1.5px solid #2b2a27; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #57544e"><span>RULE</span><span>CHECK</span><span>RESULT</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px">ALWAYS</span><span>No blocking questions open</span><span style="color: #1f4f8a">✓ Downgrades answered</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px">ALWAYS</span><span>No unresolved conflicts, including ADR-022</span><span style="color: #1f4f8a">✓ New event agreed</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px">ALWAYS</span><span>Every decision has its required stances</span><span style="color: #1f4f8a">✓ 4 of 4</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px">ALWAYS</span><span>Claims sourced, or assumed with an owner</span><span style="color: #1f4f8a">✓ 1 assumption, Dan</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px">ALWAYS</span><span>Acceptance criteria trace to notes, hat lines confirmed</span><span style="color: #1f4f8a">✓ 5 criteria</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e">TEAM</span><span>NFRs reviewed by the tech lead</span><span style="color: #1f4f8a">✓ Dan</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e">TEAM</span><span>Mock attached if there's a UI change</span><span style="color: #57544e">– No UI change</span></div>
+<div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 150px; gap: 12px; padding: 10px 16px; font-size: 14px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e">TEAM</span><span>Estimated</span><span style="color: #1f4f8a">✓ 5 points, from Jira</span></div>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 2px solid #1f4f8a; border-radius: 10px; background: #e3ecf7">
+<span style="font-size: 16px; font-weight: 700; color: #1f4f8a">Ready</span>
+<span style="font-size: 14px">Signed off by Priya, lead · 3 Oct 11:24</span>
+<button type="button" style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; min-height: 44px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #1f1f1d; color: #ffffff">Send to Jira</button>
+</div>
+</main>
+<aside style="width: 460px; flex-shrink: 0; box-sizing: border-box; border-left: 1px solid #e2dfd8; padding: 40px 24px; display: flex; flex-direction: column; gap: 14px; background: #ffffff">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">IN JIRA · BILL-150</span>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr); row-gap: 8px; font-size: 14px; padding: 14px; border: 1.5px solid #2b2a27; border-radius: 10px">
+<span style="color: #57544e">Status</span><span>Ready for sprint <span style="color: #57544e">(was Refinement)</span></span>
+<span style="color: #57544e">Ready</span><span>Yes · Priya</span>
+<span style="color: #57544e">Acceptance criteria</span><span>5, synced</span>
+<span style="color: #57544e">Decisions</span><span>2, linked back here</span>
+<span style="color: #57544e">Sprint rule</span><span>Can't enter a sprint unless Ready = Yes</span>
+</div>
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e; margin-top: 6px">WHEN SOMEONE WORKS AROUND IT</span>
+<div style="padding: 12px 14px; border: 1.5px solid #b4460c; border-radius: 10px; background: #fbe9dc; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45">
+<span><span style="font-weight: 600">BILL-151 changed in Jira.</span> Someone edited its acceptance criteria directly on 4 Oct. Ready has been removed until the change is agreed.</span>
+<div style="display: flex; gap: 6px"><button type="button" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff; color: #1f1f1d">Pull in as a draft</button><button type="button" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff; color: #1f1f1d">Revert in Jira</button></div>
+</div>
+<div style="padding: 12px 14px; border: 1.5px solid #2b2a27; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45">
+<span><span style="font-weight: 600">BILL-160 was dragged into Sprint 42</span> while still in draft. Jira blocked the move and showed why, with a link to its Ready check.</span>
+</div>
+<span style="margin-top: auto; font-size: 13px; color: #57544e; line-height: 1.45">Jira keeps delivery: status, sprint, estimate, who's doing it. This keeps intent: notes, decisions, sources and who agreed.</span>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1020}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

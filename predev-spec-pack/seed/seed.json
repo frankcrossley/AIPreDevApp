@@ -1,0 +1,718 @@
+{
+  "_readme": "Relative dates: daysAgo, createdDaysAgo and inDays are resolved against 'now' when seeding, so drafts expire realistically in demos. All content is illustrative.",
+  "people": [
+    {
+      "id": "priya",
+      "name": "Priya",
+      "role": "product"
+    },
+    {
+      "id": "sam",
+      "name": "Sam",
+      "role": "finance"
+    },
+    {
+      "id": "marcus",
+      "name": "Marcus",
+      "role": "sales"
+    },
+    {
+      "id": "dan",
+      "name": "Dan",
+      "role": "tech_lead"
+    },
+    {
+      "id": "mei",
+      "name": "Mei",
+      "role": "design"
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "role": "security"
+    },
+    {
+      "id": "jo",
+      "name": "Jo",
+      "role": "scribe"
+    },
+    {
+      "id": "hop",
+      "name": "Head of Product",
+      "role": "head_of_product"
+    }
+  ],
+  "templates": [
+    {
+      "id": "tpl-big",
+      "name": "big_change",
+      "requiresPrfaq": true,
+      "draftExpiryDays": 10,
+      "sections": [
+        "Why",
+        "How it works today",
+        "Who's affected",
+        "Rules",
+        "Compliance",
+        "Risks and assumptions",
+        "Out of scope"
+      ],
+      "teamCheckKeys": [],
+      "silenceRule": "remind_once_then_owner_decides",
+      "disagreementRule": "two_rounds_then_decider"
+    },
+    {
+      "id": "tpl-story",
+      "name": "story",
+      "requiresPrfaq": false,
+      "draftExpiryDays": 10,
+      "sections": [
+        "What we heard",
+        "What we think",
+        "Edge cases",
+        "Acceptance criteria"
+      ],
+      "requiredSections": [
+        "What we heard",
+        "What we think"
+      ],
+      "teamCheckKeys": [
+        "within_promise_scope",
+        "arch_questions_answered",
+        "estimated",
+        "mock_if_ui_change"
+      ],
+      "silenceRule": "remind_once_then_owner_decides",
+      "disagreementRule": "two_rounds_then_decider"
+    },
+    {
+      "id": "tpl-bug",
+      "name": "bug",
+      "requiresPrfaq": false,
+      "draftExpiryDays": 5,
+      "sections": [
+        "What's broken",
+        "Expected behaviour",
+        "Acceptance criteria"
+      ],
+      "teamCheckKeys": [
+        "estimated"
+      ],
+      "silenceRule": "owner_decides",
+      "disagreementRule": "owner_decides"
+    }
+  ],
+  "epics": [
+    {
+      "id": "bill-142",
+      "key": "BILL-142",
+      "title": "Usage-based billing",
+      "ownerId": "priya",
+      "deciderId": "hop",
+      "templateId": "tpl-big",
+      "memberIds": [
+        "priya",
+        "sam",
+        "marcus",
+        "dan",
+        "mei",
+        "security"
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "bill-150",
+      "key": "BILL-150",
+      "epicId": "bill-142",
+      "title": "Plan changes mid-cycle",
+      "leadId": "priya",
+      "templateId": "tpl-story",
+      "state": "in_refinement",
+      "promiseId": "pr-fair-change",
+      "estimate": 5,
+      "hasUiChange": false
+    },
+    {
+      "id": "bill-151",
+      "key": "BILL-151",
+      "epicId": "bill-142",
+      "title": "Fee cap for existing flat-fee accounts",
+      "leadId": "priya",
+      "templateId": "tpl-story",
+      "state": "in_refinement",
+      "promiseId": "pr-no-jump",
+      "estimate": null,
+      "hasUiChange": false
+    },
+    {
+      "id": "bill-152",
+      "key": "BILL-152",
+      "epicId": "bill-142",
+      "title": "Retried requests count once",
+      "leadId": "dan",
+      "templateId": "tpl-story",
+      "state": "exported",
+      "promiseId": "pr-fair-change",
+      "estimate": 3,
+      "hasUiChange": false,
+      "jiraKey": "BILL-152",
+      "sprint": "Sprint 41",
+      "signedOffBy": "priya"
+    },
+    {
+      "id": "bill-160",
+      "key": "BILL-160",
+      "epicId": "bill-142",
+      "title": "Usage view",
+      "leadId": "mei",
+      "templateId": "tpl-story",
+      "state": "draft",
+      "promiseId": "pr-see-usage",
+      "estimate": null,
+      "hasUiChange": true
+    },
+    {
+      "id": "bill-163",
+      "key": "BILL-163",
+      "epicId": "bill-142",
+      "title": "Invoices grouped by project",
+      "leadId": "priya",
+      "templateId": "tpl-story",
+      "state": "triaged",
+      "promiseId": null,
+      "estimate": null,
+      "hasUiChange": true
+    }
+  ],
+  "prfaqs": [
+    {
+      "id": "prfaq-142",
+      "epicId": "bill-142",
+      "headline": "API customers now pay for what they use, and can see it as they go",
+      "subhead": "Usage pricing replaces the flat monthly fee, with fair charges when you change plan and no surprise jumps for existing customers.",
+      "problem": "Every customer pays the same flat fee today. Heavy users underpay, light users leave, and 9 of 40 surveyed customers say they were overcharged after upgrading.",
+      "whatChanges": "Customers are billed monthly for the calls they make. Plan changes are charged by the day. Existing flat-fee accounts are capped at today's fee while they move over.",
+      "customerQuoteExcerptId": "ex-acme-1432",
+      "successMeasure": "Billing disputes halve within two billing cycles, with no rise in churn among flat-fee accounts. Baseline: 47 disputes per 90 days.",
+      "state": "draft",
+      "promises": [
+        {
+          "id": "pr-fair-change",
+          "text": "You're charged fairly when you change plan"
+        },
+        {
+          "id": "pr-no-jump",
+          "text": "Existing customers won't see a surprise jump"
+        },
+        {
+          "id": "pr-see-usage",
+          "text": "You can see your usage as it happens"
+        }
+      ],
+      "faq": [
+        {
+          "id": "faq-1",
+          "audience": "customer",
+          "question": "What if I change plan mid-month?",
+          "answer": "You pay for each plan for the days you had it.",
+          "storyIds": [
+            "bill-150"
+          ],
+          "blocking": false
+        },
+        {
+          "id": "faq-2",
+          "audience": "customer",
+          "question": "Will my bill jump?",
+          "answer": "Existing customers are capped at today's fee while they move over.",
+          "storyIds": [
+            "bill-151"
+          ],
+          "blocking": false
+        },
+        {
+          "id": "faq-3",
+          "audience": "customer",
+          "question": "Can I see my usage as it happens?",
+          "answer": "Updated hourly in the usage view.",
+          "storyIds": [
+            "bill-160"
+          ],
+          "blocking": false
+        },
+        {
+          "id": "faq-4",
+          "audience": "internal",
+          "question": "What about the 11 of 40 who'd rather keep a flat fee?",
+          "answer": null,
+          "storyIds": [],
+          "blocking": true
+        },
+        {
+          "id": "faq-5",
+          "audience": "internal",
+          "question": "Do we move to Stripe Tax?",
+          "answer": null,
+          "storyIds": [],
+          "blocking": false
+        }
+      ]
+    }
+  ],
+  "readBacks": [
+    {
+      "personId": "priya",
+      "text": "Pay per use, fair on plan changes, no shocks for big accounts.",
+      "assessment": "matches"
+    },
+    {
+      "personId": "sam",
+      "text": "Stop the month-end spreadsheet and the disputes it causes.",
+      "assessment": "matches"
+    },
+    {
+      "personId": "marcus",
+      "text": "Usage pricing without losing the top 20 accounts.",
+      "assessment": "matches"
+    },
+    {
+      "personId": "mei",
+      "text": "Customers can see what they're spending before the invoice.",
+      "assessment": "matches"
+    },
+    {
+      "personId": "dan",
+      "text": "Hourly billing so customers see live cost.",
+      "assessment": "diverges",
+      "note": "The PRFAQ bills monthly and shows usage hourly. Hourly billing isn't in it."
+    }
+  ],
+  "sources": [
+    {
+      "id": "src-call-acme",
+      "kind": "call",
+      "title": "Discovery call · Acme Corp",
+      "daysAgo": 6,
+      "file": "sources/acme-call.txt"
+    },
+    {
+      "id": "src-survey",
+      "kind": "survey",
+      "title": "Stakeholder survey · usage billing",
+      "daysAgo": 9,
+      "file": "sources/survey.csv"
+    },
+    {
+      "id": "src-kickoff",
+      "kind": "doc",
+      "title": "Kickoff notes",
+      "daysAgo": 8
+    },
+    {
+      "id": "src-plans",
+      "kind": "code",
+      "title": "services/billing/plans.ts"
+    },
+    {
+      "id": "src-adr022",
+      "kind": "adr",
+      "title": "ADR-022 Billing does not read metering's database"
+    },
+    {
+      "id": "src-adr017",
+      "kind": "adr",
+      "title": "ADR-017 Tax is calculated in-house (2023)"
+    },
+    {
+      "id": "src-ticket-4812",
+      "kind": "ticket",
+      "title": "Support #4812",
+      "daysAgo": 3
+    },
+    {
+      "id": "src-chat-sam",
+      "kind": "chat",
+      "title": "Comment thread on BILL-150",
+      "daysAgo": 4
+    }
+  ],
+  "excerpts": [
+    {
+      "id": "ex-acme-1240",
+      "sourceId": "src-call-acme",
+      "locator": "12:40",
+      "text": "We upgraded on the 20th and paid the new price all month. Finance weren't happy."
+    },
+    {
+      "id": "ex-acme-1432",
+      "sourceId": "src-call-acme",
+      "locator": "14:32",
+      "text": "Only if we can see it in real time. We budget by department."
+    },
+    {
+      "id": "ex-acme-1705",
+      "sourceId": "src-call-acme",
+      "locator": "17:05",
+      "text": "A hard monthly cap would help us sign it off internally."
+    },
+    {
+      "id": "ex-kickoff-1",
+      "sourceId": "src-kickoff",
+      "locator": "line 1",
+      "text": "sam: upgrades mid month get fixed in the spreadsheet, customer sees new price for whole month"
+    },
+    {
+      "id": "ex-plans-88",
+      "sourceId": "src-plans",
+      "locator": "L88",
+      "text": "// plan change applies immediately"
+    },
+    {
+      "id": "ex-adr022",
+      "sourceId": "src-adr022",
+      "locator": "Decision",
+      "text": "Billing must not read from the metering database. Metering publishes events; billing consumes them."
+    },
+    {
+      "id": "ex-adr017",
+      "sourceId": "src-adr017",
+      "locator": "Decision",
+      "text": "Tax is calculated in-house for all invoices."
+    },
+    {
+      "id": "ex-ticket-4812",
+      "sourceId": "src-ticket-4812",
+      "locator": "body",
+      "text": "Can the usage view show cost so far this month, not just the number of calls?"
+    },
+    {
+      "id": "ex-sam-lines",
+      "sourceId": "src-chat-sam",
+      "locator": "comment 1",
+      "text": "Show both plans as separate lines on the invoice."
+    },
+    {
+      "id": "ex-survey-overcharged",
+      "sourceId": "src-survey",
+      "locator": "theme:Overcharged after upgrading",
+      "kind": "theme",
+      "text": "Overcharged after upgrading · 9 of 40",
+      "note": "Computed theme. The rows are assigned by themeSurvey and counted in code; the seeder can recompute this from survey.csv."
+    }
+  ],
+  "blocks": [
+    {
+      "id": "b1",
+      "parentId": "bill-150",
+      "section": "What we heard",
+      "order": 1,
+      "authorId": "priya",
+      "text": "Acme upgraded on the 20th and paid the new price all month.",
+      "citations": [
+        "ex-acme-1240"
+      ]
+    },
+    {
+      "id": "b2",
+      "parentId": "bill-150",
+      "section": "What we heard",
+      "order": 2,
+      "authorId": "priya",
+      "text": "9 of 40 survey respondents say they were overcharged after upgrading.",
+      "citations": [
+        "ex-survey-overcharged"
+      ]
+    },
+    {
+      "id": "b3",
+      "parentId": "bill-150",
+      "section": "What we heard",
+      "order": 3,
+      "authorId": "jo",
+      "text": "Sam fixes upgrades by hand in the spreadsheet at month end.",
+      "citations": [
+        "ex-kickoff-1"
+      ]
+    },
+    {
+      "id": "b4",
+      "parentId": "bill-150",
+      "section": "What we think",
+      "order": 1,
+      "authorId": "priya",
+      "text": "Upgrades apply immediately, charged by the day.",
+      "itemId": "it-d1",
+      "citations": [
+        "ex-plans-88",
+        "b1"
+      ]
+    },
+    {
+      "id": "b5",
+      "parentId": "bill-150",
+      "section": "What we think",
+      "order": 2,
+      "authorId": "priya",
+      "text": "Immediately means both the plan and the invoice line.",
+      "citations": [
+        "b4"
+      ]
+    },
+    {
+      "id": "b6",
+      "parentId": "bill-150",
+      "section": "Edge cases",
+      "order": 1,
+      "authorId": "priya",
+      "text": "What happens on a downgrade mid-cycle?",
+      "itemId": "it-q1"
+    },
+    {
+      "id": "b7",
+      "parentId": "bill-150",
+      "section": "Edge cases",
+      "order": 2,
+      "authorId": "dan",
+      "text": "A customer changes plan twice in one month. Probably fine, same rule applies."
+    },
+    {
+      "id": "b8",
+      "parentId": "bill-150",
+      "section": "What we think",
+      "order": 3,
+      "authorId": "sam",
+      "text": "Show both plans as separate lines on the invoice.",
+      "citations": [
+        "ex-sam-lines"
+      ]
+    },
+    {
+      "id": "b20",
+      "parentId": "bill-151",
+      "section": "Edge cases",
+      "order": 1,
+      "authorId": "marcus",
+      "text": "How long does the cap last? 12 months is too short, most of the top 20 renew in month 14 to 18.",
+      "itemId": "it-q151"
+    }
+  ],
+  "items": [
+    {
+      "id": "it-d1",
+      "parentId": "bill-150",
+      "blockId": "b4",
+      "type": "decision",
+      "text": "Upgrades apply immediately, charged by the day.",
+      "status": "open",
+      "ownerId": "priya",
+      "requiredStanceIds": [
+        "priya",
+        "sam",
+        "marcus",
+        "dan"
+      ]
+    },
+    {
+      "id": "it-q1",
+      "parentId": "bill-150",
+      "blockId": "b6",
+      "type": "question",
+      "text": "What happens on a downgrade mid-cycle?",
+      "status": "open",
+      "ownerId": "priya",
+      "blocking": true
+    },
+    {
+      "id": "it-q151",
+      "parentId": "bill-151",
+      "blockId": "b20",
+      "type": "question",
+      "text": "How long does the fee cap last?",
+      "status": "open",
+      "ownerId": "marcus",
+      "blocking": true
+    }
+  ],
+  "stances": [
+    {
+      "itemId": "it-d1",
+      "personId": "priya",
+      "value": "agree"
+    },
+    {
+      "itemId": "it-d1",
+      "personId": "sam",
+      "value": "agree"
+    },
+    {
+      "itemId": "it-d1",
+      "personId": "marcus",
+      "value": "agree"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "ac1",
+      "storyId": "bill-150",
+      "given": "a customer upgrades on day 15 of a 30-day cycle",
+      "when": "the invoice is produced",
+      "then": "the old plan is charged for 14 days and the new plan for 16",
+      "citations": [
+        "b4",
+        "b5"
+      ],
+      "origin": "notes"
+    },
+    {
+      "id": "ac2",
+      "storyId": "bill-150",
+      "given": "a plan changed during the month",
+      "when": "the invoice is produced",
+      "then": "each plan appears as its own invoice line",
+      "citations": [
+        "b8"
+      ],
+      "origin": "notes",
+      "confirmedBy": "priya"
+    }
+  ],
+  "hatNotes": [
+    {
+      "id": "hn1",
+      "hat": "eng",
+      "kind": "challenge",
+      "targetId": "b4",
+      "text": "The code switches plans instantly (plans.ts L88), but invoices are monthly. Does 'immediately' mean the plan, the invoice, or both?",
+      "refs": [
+        "ex-plans-88"
+      ],
+      "status": "accepted"
+    },
+    {
+      "id": "hn2",
+      "hat": "qa",
+      "kind": "challenge",
+      "targetId": "b7",
+      "text": "'Probably fine' isn't testable. If a retried request lands after the change, which plan's price applies?",
+      "refs": [
+        "b7"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "hn3",
+      "hat": "arch",
+      "kind": "challenge",
+      "targetId": "b4",
+      "text": "Proration needs billing to read plan history from metering. ADR-022 keeps billing out of metering's database. New event, or an exception?",
+      "refs": [
+        "ex-adr022"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "hn4",
+      "hat": "qa",
+      "kind": "challenge",
+      "targetId": "it-q1",
+      "text": "Downgrade then upgrade in the same cycle: which rule wins?",
+      "refs": [
+        "it-q1"
+      ],
+      "status": "open"
+    }
+  ],
+  "drafts": [
+    {
+      "id": "dr1",
+      "targetId": "bill-150",
+      "authorId": "marcus",
+      "createdDaysAgo": 2,
+      "text": "Downgrades should apply at the next cycle, not immediately. Customers game it otherwise."
+    },
+    {
+      "id": "dr2",
+      "targetId": "bill-150",
+      "authorId": "mei",
+      "createdDaysAgo": 8,
+      "text": "Should the invoice explain the proration?"
+    },
+    {
+      "id": "draft-sam-lines",
+      "targetId": "bill-150",
+      "authorId": "sam",
+      "createdDaysAgo": 4,
+      "status": "accepted",
+      "text": "Show both plans as separate lines on the invoice.",
+      "acceptedAsBlockId": "b8"
+    },
+    {
+      "id": "dr3",
+      "targetId": "bill-160",
+      "excerptId": "ex-acme-1432",
+      "createdDaysAgo": 2,
+      "text": "We budget by department."
+    },
+    {
+      "id": "dr4",
+      "targetId": "bill-160",
+      "excerptId": "ex-ticket-4812",
+      "createdDaysAgo": 9,
+      "text": "Can the usage view show cost so far this month, not just the number of calls?"
+    },
+    {
+      "id": "dr5",
+      "targetId": "bill-142",
+      "sourceId": "src-survey",
+      "createdDaysAgo": 7,
+      "text": "Enterprise customers want invoices grouped by project (6 of 40)."
+    },
+    {
+      "id": "dr6",
+      "targetId": "bill-150",
+      "authorId": "dan",
+      "createdDaysAgo": 11,
+      "status": "expired",
+      "text": "Proration should round to the hour."
+    }
+  ],
+  "sessions": [
+    {
+      "id": "sess-1",
+      "inDays": 5,
+      "attendeeIds": [
+        "priya",
+        "sam",
+        "marcus",
+        "dan",
+        "mei",
+        "jo"
+      ],
+      "status": "planned",
+      "lengthMinutes": 60
+    }
+  ],
+  "jira": {
+    "note": "Simulated Jira (ADR-004). Seed the backlog from here; export Ready items back as files.",
+    "sprintRule": "An item can enter a sprint only if Ready.",
+    "simulatedDrift": [
+      {
+        "storyKey": "BILL-152",
+        "field": "acceptanceCriteria",
+        "change": "Added: 'Retries within 24 hours only'",
+        "editedBy": "someone in Jira"
+      }
+    ]
+  },
+  "_expected": {
+    "BILL-150": {
+      "rightThing": "4 of 5, failing team_aligned",
+      "builtRight": "5 of 8, failing no_blocking_questions, stances_complete (Dan), arch_questions_answered"
+    },
+    "BILL-142": {
+      "prfaqAgreement": "blocked: Dan's read-back diverges, Security has none, faq-4 unanswered; BILL-163 serves no promise (flagged, not blocking)"
+    },
+    "drafts": "With a session in 5 days: dr1 and dr3 expire in 5 days, dr2 in 2, dr4 tomorrow, dr5 in 3; dr6 is already expired."
+  }
+}

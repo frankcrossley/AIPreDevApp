@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add a source – discovery call and survey</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1600px; height: 1020px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #2b2a27">
+<header style="flex-shrink: 0; box-sizing: border-box; padding: 24px 40px 14px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #e2dfd8">
+<h1 style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 28px; font-weight: 600">Add a source</h1>
+<div style="display: flex; gap: 6px">
+<button type="button" aria-pressed="true" style="font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 999px; background: #1f1f1d; color: #ffffff">Call transcript</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 999px; background: #ffffff; color: #1f1f1d">Survey</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 999px; background: #ffffff; color: #1f1f1d">Support tickets</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 999px; background: #ffffff; color: #1f1f1d">Document</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 34px; border: 1.5px solid #2b2a27; border-radius: 999px; background: #ffffff; color: #1f1f1d">Chat thread</button>
+</div>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<section style="flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 24px 40px; border-right: 1px solid #e2dfd8; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 14px; font-weight: 600">Discovery call · Acme Corp · 24 Sep · 38 min · from Teams</span>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.55">
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">11:02</span><span style="font-weight: 600">Priya</span> How do you use the API day to day?</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">11:20</span><span style="font-weight: 600">Acme</span> Mostly batch jobs overnight, some spikes at quarter end.</span>
+<span style="background: #e3ecf7; border-radius: 4px; padding: 2px 4px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">12:40</span><span style="font-weight: 600">Acme</span> We upgraded on the 20th and paid the new price all month. Finance weren't happy.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">14:15</span><span style="font-weight: 600">Priya</span> Would per-call pricing work for you?</span>
+<span style="background: #e3ecf7; border-radius: 4px; padding: 2px 4px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">14:32</span><span style="font-weight: 600">Acme</span> Only if we can see it in real time. We budget by department.</span>
+<span style="background: #e3ecf7; border-radius: 4px; padding: 2px 4px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">17:05</span><span style="font-weight: 600">Acme</span> A hard monthly cap would help us sign it off internally.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #57544e; margin-right: 8px">21:40</span><span style="font-weight: 600">Acme</span> What discount could we get on a two-year deal?</span>
+</div>
+<span style="margin-top: auto; font-size: 13px; color: #57544e">Highlighted lines became candidates. Click any line to add it yourself.</span>
+</section>
+<section style="width: 640px; flex-shrink: 0; box-sizing: border-box; padding: 24px 32px; display: flex; flex-direction: column; gap: 10px; background: #ffffff">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">CANDIDATES · IN THE CUSTOMER'S WORDS · TICK TO SEND</span>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-size: 14px; line-height: 1.45"><input type="checkbox" checked="checked" style="margin-top: 4px"><span>Paid the new price all month after a mid-month upgrade. <span style="color: #57544e">12:40 · for BILL-150</span></span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-size: 14px; line-height: 1.45"><input type="checkbox" checked="checked" style="margin-top: 4px"><span style="display: flex; flex-direction: column; gap: 4px"><span>Needs to see usage in real time, by department. <span style="color: #57544e">14:32 · for BILL-160</span></span><span style="font-size: 13px; color: #57544e"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; font-weight: 600; padding: 1px 5px; margin-right: 6px; border: 1.5px solid #2b2a27; border-radius: 4px; color: #1f1f1d">ENG</span>Metering batches hourly today (emit.ts). “Real time” needs a question.</span></span></label>
+<label style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-size: 14px; line-height: 1.45"><input type="checkbox" checked="checked" style="margin-top: 4px"><span>A hard monthly cap would help them get internal sign-off. <span style="color: #57544e">17:05 · for BILL-151</span></span></label>
+<span style="font-size: 13px; color: #57544e">Left out: 21:40 is a sales negotiation, not a requirement. <a href="#k">Keep it</a></span>
+<div style="margin-top: 10px; padding: 14px; border: 1.5px solid #2b2a27; border-radius: 10px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 14px; font-weight: 600">Also added · Stakeholder survey · 40 responses</span>
+<div style="display: grid; grid-template-columns: 260px minmax(0, 1fr) 40px; gap: 8px 10px; align-items: center; font-size: 13px">
+<span>Want to see usage as it happens</span><span style="display: block; height: 10px; width: 35%; background: #2b2a27; border-radius: 2px"></span><span>14</span>
+<span>Would rather keep a flat fee</span><span style="display: block; height: 10px; width: 28%; background: #2b2a27; border-radius: 2px"></span><span>11</span>
+<span>Overcharged after upgrading</span><span style="display: block; height: 10px; width: 23%; background: #2b2a27; border-radius: 2px"></span><span>9</span>
+<span>Invoices grouped by project</span><span style="display: block; height: 10px; width: 15%; background: #2b2a27; border-radius: 2px"></span><span>6</span>
+</div>
+<span style="font-size: 12px; color: #57544e">Themes are counted, not cherry-picked. The 11 who prefer a flat fee go in too.</span>
+</div>
+<div style="margin-top: auto; display: flex; align-items: center; gap: 12px">
+<button type="button" style="font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; min-height: 44px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #1f1f1d; color: #ffffff">Send 7 to the tray as drafts</button>
+<span style="font-size: 13px; color: #57544e">Priya reviews by Thu</span>
+</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":1020}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

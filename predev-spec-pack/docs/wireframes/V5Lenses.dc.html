@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your AI teammate – hats and how they adjust</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1040px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; flex-direction: column; gap: 16px; padding: 40px 56px; overflow: hidden; border: 1.5px solid #2b2a27">
+<span style="font-size: 13px; color: #57544e">Billing squad / Settings</span>
+<h1 style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 32px; font-weight: 600">Your AI teammate</h1>
+<p style="margin: 0; font-size: 15px; color: #57544e; max-width: 900px">One teammate with different hats. You don't manage agents: you see which hat a note came from, and you can call one by typing @qa, @architect, @engineer, @security or @product next to any line.</p>
+<div style="border: 1.5px solid #2b2a27; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; padding: 10px 16px; background: #f3f1ec; border-bottom: 1.5px solid #2b2a27; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #57544e"><span>HAT</span><span>WHAT IT CHECKS</span><span>SPEAKS UP WHEN</span><span>VOLUME</span></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px; background: #f3f1ec"><span style="font-weight: 700">Scrum Master</span><span>Lifecycle, agendas, expiring drafts, missing stances, the Ready check</span><span style="color: #57544e">Always. It runs the process.</span><span style="font-size: 13px; color: #57544e">Always on</span></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-weight: 700">QA</span><span>Edge cases, testability, criteria that can't fail</span><span style="color: #57544e">Rules or criteria are written</span><select aria-label="QA volume" style="font: inherit; font-size: 13px; padding: 4px 6px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Normal</option><option>Quiet</option><option>Off</option></select></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-weight: 700">Architect</span><span>Cross-service impact, fit with ADRs, NFRs</span><span style="color: #57544e">An item touches more than one service</span><select aria-label="Architect volume" style="font: inherit; font-size: 13px; padding: 4px 6px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Normal</option><option>Quiet</option><option>Off</option></select></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-weight: 700">Engineer</span><span>What the code does today, feasibility</span><span style="color: #57544e">A note contradicts the repo</span><select aria-label="Engineer volume" style="font: inherit; font-size: 13px; padding: 4px 6px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Quiet</option><option>Normal</option><option>Off</option></select></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; border-bottom: 1px solid #e2dfd8; font-size: 14px"><span style="font-weight: 700">Security</span><span>Personal data, residency, policy</span><span style="color: #57544e">Data or a policy is mentioned</span><select aria-label="Security volume" style="font: inherit; font-size: 13px; padding: 4px 6px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Normal</option><option>Quiet</option></select></div>
+<div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 280px 130px; gap: 14px; align-items: center; padding: 11px 16px; font-size: 14px"><span style="font-weight: 700">Product</span><span>Fit with the epic outcome, scope creep</span><span style="color: #57544e">Drafts arrive in the tray</span><select aria-label="Product volume" style="font: inherit; font-size: 13px; padding: 4px 6px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Quiet</option><option>Normal</option><option>Off</option></select></div>
+</div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px">
+<section style="padding: 16px 18px; border: 1.5px solid #2b2a27; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">ADJUSTED FROM HOW YOUR TEAM WORKS</span>
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 1.45"><span>QA now checks retries and idempotency by default. You added it by hand on 4 of your last 5 billing items.</span><a href="#u1" style="flex-shrink: 0">Undo</a></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 1.45"><span>Engineer is quieter about UI copy. Those notes were dismissed 9 times.</span><a href="#u2" style="flex-shrink: 0">Undo</a></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 1.45"><span>Architect now reads ADR-022 on anything touching metering.</span><a href="#u3" style="flex-shrink: 0">Undo</a></div>
+</section>
+<section style="padding: 16px 18px; border: 2px solid #1f1f1d; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">RULES NO HAT CAN BREAK</span>
+<span style="font-size: 14px; line-height: 1.45">Reshape and challenge; never add a fact. Anything new is a question for a person.</span>
+<span style="font-size: 14px; line-height: 1.45">Every shaped line links back to the notes it came from.</span>
+<span style="font-size: 14px; line-height: 1.45">Hats never agree to anything. Only people take stances.</span>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

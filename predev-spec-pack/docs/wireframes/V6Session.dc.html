@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Single workspace – refinement session mode</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1600px; height: 1100px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #2b2a27">
+<header style="height: 52px; flex-shrink: 0; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; gap: 16px; border-bottom: 1.5px solid #2b2a27; background: #1f1f1d; color: #ffffff">
+<span style="font-weight: 700; font-size: 15px">Refinement · live</span>
+<span style="font-size: 13px">Thu 3 Oct · Priya, Sam, Marcus, Dan, Mei, Jo</span>
+<span style="font-size: 13px; padding: 4px 10px; border: 1.5px solid #ffffff; border-radius: 999px">● On the room's screen · Jo capturing</span>
+<span style="margin-left: auto; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 14px">22:14 of 60</span>
+<button type="button" style="font: inherit; font-size: 13px; padding: 6px 12px; min-height: 32px; border: 1.5px solid #ffffff; border-radius: 6px; background: transparent; color: #ffffff">End session</button>
+</header>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<nav aria-label="Agenda" style="width: 270px; flex-shrink: 0; box-sizing: border-box; background: #f3f1ec; border-right: 1px solid #d6d2ca; padding: 14px 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e; padding: 4px 8px 6px">AGENDA · SAME LIST, SESSION ORDER</span>
+<div style="padding: 8px 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px; color: #57544e"><span>1 · Triage expiring drafts</span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #1f4f8a">DONE · 6 MIN</span></div>
+<div style="padding: 8px 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px; color: #57544e"><span>2 · BILL-142 read-backs</span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #1f4f8a">DONE · DAN REALIGNED</span></div>
+<div style="padding: 8px 10px; background: #ffffff; border: 2px solid #1f1f1d; border-radius: 6px; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">3 · BILL-150 Plan changes</span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px">NOW · 8 MIN LEFT</span></div>
+<div style="padding: 8px 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px"><span>4 · BILL-151 Fee cap</span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #b4460c">BLOCKING · CAP DURATION</span></div>
+<div style="padding: 8px 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 2px"><span>5 · BILL-163 Project grouping</span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #b4460c">IN THE PRFAQ, OR NOT?</span></div>
+<span style="margin-top: 8px; padding: 0 8px; font-size: 12px; color: #57544e; line-height: 1.45">Left off: BILL-152 and 2 others are already Ready.</span>
+</nav>
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 48px; display: flex; flex-direction: column; gap: 12px; font-size: 16px; line-height: 1.6">
+<span style="font-size: 13px; color: #57544e">BILL-150 · serves “You're charged fairly when you change plan”</span>
+<h1 style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 32px; font-weight: 600">Plan changes mid-cycle</h1>
+<p style="margin: 0"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; font-weight: 600; padding: 2px 6px; margin-right: 8px; border: 1.5px solid #b4460c; border-radius: 4px; background: #fbe9dc; color: #b4460c; vertical-align: 2px">DECIDING NOW</span>What happens on a downgrade mid-cycle?</p>
+<div style="margin-left: 24px; display: flex; flex-direction: column; gap: 4px; font-size: 15px">
+<span><span style="font-weight: 600">Marcus:</span> next cycle, or customers downgrade for a week and upgrade back.</span>
+<span><span style="font-weight: 600">Sam:</span> fine by Finance.</span>
+<span style="color: #57544e">Jo: agreed, downgrades from next cycle<span style="display: inline-block; width: 2px; height: 18px; background: #1f1f1d; vertical-align: middle; margin-left: 2px"></span></span>
+</div>
+<section style="padding: 16px 18px; border: 2px solid #1f1f1d; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 12px">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">DECISION · WRITTEN IN THE ROOM</span>
+<p style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 20px; line-height: 1.45">Upgrades apply immediately and are charged by the day. Downgrades apply from the next billing cycle.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 14px">
+<span style="padding: 4px 11px; border: 1.5px solid #1f4f8a; border-radius: 999px; background: #e3ecf7; color: #1f4f8a">Priya · Agree</span>
+<span style="padding: 4px 11px; border: 1.5px solid #1f4f8a; border-radius: 999px; background: #e3ecf7; color: #1f4f8a">Sam · Agree</span>
+<span style="padding: 4px 11px; border: 1.5px solid #1f4f8a; border-radius: 999px; background: #e3ecf7; color: #1f4f8a">Marcus · Agree</span>
+<span style="padding: 4px 11px; border: 1.5px dashed #57544e; border-radius: 999px">Dan · waiting</span>
+<button type="button" style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; min-height: 40px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #1f1f1d; color: #ffffff">Stance round</button>
+</div>
+</section>
+<div style="display: flex; gap: 10px; align-items: center; font-size: 13px">
+<span style="padding: 6px 10px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #ffffff"><span style="font-weight: 700">Right thing</span> 5 of 5</span>
+<span style="padding: 6px 10px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #ffffff"><span style="font-weight: 700">Built right</span> 6 of 8 · 7 of 8 if Dan agrees</span>
+</div>
+</main>
+<aside style="width: 420px; flex-shrink: 0; box-sizing: border-box; border-left: 1.5px solid #2b2a27; background: #ffffff; display: flex; flex-direction: column">
+<div style="display: flex; border-bottom: 1px solid #d6d2ca">
+<button type="button" aria-pressed="true" style="flex: 1 1 0; font: inherit; font-size: 13px; font-weight: 600; padding: 12px 8px; border: none; border-bottom: 2.5px solid #1f1f1d; background: #ffffff; color: #1f1f1d">Talking points · 3</button>
+<button type="button" aria-pressed="false" style="flex: 1 1 0; font: inherit; font-size: 13px; padding: 12px 8px; border: none; background: #ffffff; color: #57544e">Parked · 1</button>
+</div>
+<div style="flex-grow: 1; min-height: 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.45">
+<div style="padding: 10px 12px; background: #1f1f1d; color: #ffffff; border-radius: 8px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; font-weight: 600; margin-right: 6px">SCRUM MASTER</span>Dan hasn't spoken on this item. His architecture question is the last thing blocking Ready.</div>
+<div style="padding: 10px 12px; border: 2px solid #1f1f1d; border-radius: 8px; display: flex; flex-direction: column; gap: 6px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">NOW</span><span style="font-weight: 600">Downgrade rule</span><span style="color: #57544e">From Marcus's tray draft · Sam's comment</span></div>
+<div style="padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; display: flex; flex-direction: column; gap: 6px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">NEXT · DAN</span><span style="font-weight: 600">New event, or exception to ADR-022?</span><span style="font-size: 12px"><a href="#ask">Ask Dan now</a> · <a href="#park">Park to async, due Mon</a></span></div>
+<div style="padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; display: flex; flex-direction: column; gap: 6px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">IF TIME</span><span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; font-weight: 600; padding: 1px 5px; margin-right: 6px; border: 1.5px solid #2b2a27; border-radius: 4px">QA</span>Downgrade then upgrade in one cycle: which rule wins?</span></div>
+<span style="margin-top: auto; font-size: 12px; color: #57544e">Anything not reached becomes an async talking point with an owner and a due date. Nothing just disappears.</span>
+</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

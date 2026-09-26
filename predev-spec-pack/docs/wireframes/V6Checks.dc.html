@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Two checks – right thing and built right</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1200px; height: 900px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; flex-direction: column; gap: 18px; padding: 40px 48px; overflow: hidden; border: 1.5px solid #2b2a27">
+<div>
+<span style="font-size: 13px; color: #57544e">BILL-150 · opened from the two meters under the title</span>
+<h1 style="margin: 4px 0 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 30px; font-weight: 600">Are we building the right thing, and building it right?</h1>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<section style="padding: 18px 20px; border: 1.5px solid #2b2a27; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 18px; font-weight: 700">Right thing</span><span style="font-size: 20px; font-weight: 700">4 of 5</span></div>
+<span style="font-size: 13px; color: #57544e">Anchored to the epic's PRFAQ. Stories inherit the epic's checks and add their own trace.</span>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45">
+<span style="color: #1f4f8a">✓ Serves a promise in the PRFAQ <span style="color: #57544e">· fair charges on plan change</span></span>
+<span style="color: #1f4f8a">✓ Backed by evidence <span style="color: #57544e">· 1 call, 9 of 40 survey</span></span>
+<span style="color: #1f4f8a">✓ Linked to the success measure <span style="color: #57544e">· billing disputes</span></span>
+<span style="color: #1f4f8a">✓ No wider than the promise <span style="color: #57544e">· nothing beyond the FAQ answer</span></span>
+<span style="color: #b4460c">✗ The team is aligned on the PRFAQ <span style="color: #57544e">· read-backs 4 of 6, Dan diverges</span></span>
+</div>
+<a href="V6Epic.dc.html" style="font-size: 13px; margin-top: 4px">Open the PRFAQ and read-backs</a>
+</section>
+<section style="padding: 18px 20px; border: 1.5px solid #2b2a27; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 18px; font-weight: 700">Built right</span><span style="font-size: 20px; font-weight: 700">5 of 8</span></div>
+<span style="font-size: 13px; color: #57544e">Your Definition of Ready. FLOOR rules can't be removed; TEAM rules are yours.</span>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45">
+<span style="color: #1f4f8a">✓ Required claims sourced or assumed <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">FLOOR</span></span>
+<span style="color: #1f4f8a">✓ Criteria trace to notes <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">FLOOR</span></span>
+<span style="color: #1f4f8a">✓ No unresolved conflicts <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">FLOOR</span></span>
+<span style="color: #b4460c">✗ No blocking questions · downgrades <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">FLOOR</span></span>
+<span style="color: #b4460c">✗ Decisions have their stances · Dan <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">FLOOR</span></span>
+<span style="color: #b4460c">✗ Architecture question answered <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">TEAM</span></span>
+<span style="color: #1f4f8a">✓ Estimated, from Jira <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">TEAM</span></span>
+<span style="color: #1f4f8a">✓ No UI change, so no mock needed <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; color: #57544e">TEAM</span></span>
+</div>
+</section>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 15px">
+<span style="padding: 8px 14px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #ffffff">Right thing</span><span aria-hidden="true">+</span>
+<span style="padding: 8px 14px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #ffffff">Built right</span><span aria-hidden="true">→</span>
+<span style="padding: 8px 14px; border: 1.5px solid #2b2a27; border-radius: 8px; background: #ffffff">Lead signs off</span><span aria-hidden="true">→</span>
+<span style="padding: 8px 14px; border: 2px solid #1f4f8a; border-radius: 8px; background: #e3ecf7; color: #1f4f8a; font-weight: 600">Ready in Jira</span>
+</div>
+<p style="margin: 0; font-size: 14px; color: #57544e; line-height: 1.5">Every failing line is a link to the exact thing to fix, in the same workspace: a decision in the right panel, a read-back on the epic, a question on the page.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

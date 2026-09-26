@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shaped view – notes into the team's story format</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Serif:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#fdfcf9}
+a{color:#1f4f8a}a:hover{color:#163a66}
+</style>
+</helmet>
+<div style="width: 1600px; height: 1080px; box-sizing: border-box; background: #fdfcf9; font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; color: #1f1f1d; display: flex; flex-direction: column; overflow: hidden; border: 1.5px solid #2b2a27">
+<header style="height: 56px; flex-shrink: 0; box-sizing: border-box; padding: 0 32px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #e2dfd8">
+<span style="font-size: 14px; color: #57544e">BILL-150 / <span style="color: #1f1f1d">Plan changes mid-cycle</span></span>
+<div style="margin-left: auto; display: flex; border: 1.5px solid #2b2a27; border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 14px; border: none; background: #ffffff; color: #1f1f1d">Notes</button>
+<button type="button" aria-pressed="true" style="font: inherit; font-size: 13px; padding: 6px 14px; border: none; background: #1f1f1d; color: #ffffff">Side by side</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; padding: 6px 14px; border: none; background: #ffffff; color: #1f1f1d">Shaped</button>
+</div>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 13px">Format <select style="font: inherit; font-size: 13px; padding: 4px 8px; border: 1.5px solid #2b2a27; border-radius: 6px; background: #ffffff"><option>Our story template</option><option>Gherkin only</option><option>aidlc-docs</option></select></label>
+</header>
+<div style="padding: 12px 32px; border-bottom: 1px solid #e2dfd8; font-size: 14px; background: #f3f1ec">Reshaped from <span style="font-weight: 600">7 of your notes</span>. Nothing was added without a source; <span style="color: #b4460c; font-weight: 600">1 line came from a hat</span> and needs a person to keep it.</div>
+<div style="flex-grow: 1; min-height: 0; display: flex">
+<section style="width: 560px; flex-shrink: 0; box-sizing: border-box; padding: 28px 32px; border-right: 1px solid #e2dfd8; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.55">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">YOUR NOTES</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n1</span>Sam: upgrades get fixed by hand in the spreadsheet at month end.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n2</span>Acme: paid the new price all month after upgrading on the 20th.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n3</span>9 of 40 survey respondents overcharged after upgrading.</span>
+<span style="background: #e3ecf7; border-radius: 4px; padding: 2px 4px"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n4</span>Decision: apply immediately, charge each plan for the days held.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n5</span>Priya answered ENG: “immediately” means both the plan and the invoice line.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n6</span>Sam in comments: show both plans as separate lines on the invoice.</span>
+<span><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #57544e; margin-right: 8px">n7</span>Changing plan twice in a month: same rule applies.</span>
+</section>
+<section style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 40px; display: flex; flex-direction: column; gap: 14px; background: #ffffff">
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #57544e">SHAPED · EDIT HERE AND IT STAYS LINKED TO THE NOTES</span>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 13px; font-weight: 700">Story</span>
+<p style="margin: 0; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 19px; line-height: 1.45">As an API customer who changes plan partway through a month, I'm charged for each plan only for the days I was on it, so my invoice matches what I had.</p>
+<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #1f4f8a">from n2, n3, n4</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700">Acceptance criteria</span>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; align-items: start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; line-height: 1.6"><span>Given a customer upgrades on day 15 of 30<br>Then the invoice charges the old plan for 14 days and the new plan for 16</span><span style="font-size: 11px; color: #1f4f8a">n4, n5</span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; align-items: start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; line-height: 1.6"><span>Given a plan changed during the month<br>Then each plan appears as its own invoice line</span><span style="font-size: 11px; color: #1f4f8a">n6</span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; align-items: start; padding: 10px 12px; border: 1.5px solid #2b2a27; border-radius: 8px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; line-height: 1.6"><span>Given two plan changes in one month<br>Then each of the three periods is charged at its own plan</span><span style="font-size: 11px; color: #1f4f8a">n7</span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; align-items: start; padding: 10px 12px; border: 1.5px dashed #b4460c; border-radius: 8px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; line-height: 1.6"><span style="display: flex; flex-direction: column; gap: 6px"><span>Given a retried request arrives after a plan change<br>Then it is priced at the plan active when first sent</span><span style="font-family: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, sans-serif; font-size: 12px; color: #57544e">From the QA hat, not your notes. <a href="#keep">Keep</a> · <a href="#rm">Remove</a> · <a href="#ask">Ask Dan</a></span></span><span style="font-size: 11px; color: #b4460c">QA · unconfirmed</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700">Not covered yet</span>
+<span style="font-size: 14px; color: #b4460c">Downgrades mid-cycle: blocking question, waiting on Marcus. No criteria written until it's answered.</span>
+</div>
+<div style="margin-top: auto; display: flex; gap: 20px; font-size: 13px; color: #57544e">
+<span>Reworded: 2 lines</span><span>Merged: n2 and n3</span><span>Dropped: n1, context only</span><a href="#diff">See every change</a>
+</div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
