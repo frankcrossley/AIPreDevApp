@@ -1,7 +1,7 @@
 // The story state machine. docs/domain.md "Story lifecycle", ADR-007.
 // The only way to reach `ready` is signOff(): all checks passing plus the lead's sign-off.
 
-import { allChecksPass, evaluateBuiltRight, evaluateRightThing, latestStances } from "./checks";
+import { allChecksPass, evaluateBuiltRight, evaluateRightThing, isLiveItem, latestStances } from "./checks";
 import type { DomainSnapshot, Item, Story, StoryState } from "./types";
 
 export type TransitionResult = { ok: true; story: Story } | { ok: false; reasons: string[] };
@@ -127,7 +127,7 @@ export interface ReopenResult {
  */
 export function reopenOnEdit(story: Story, editedId: string, ctx: DomainSnapshot): ReopenResult {
   const decisions = ctx.items.filter(
-    (i) => i.parentType === "story" && i.parentId === story.id && i.type === "decision",
+    (i) => i.parentType === "story" && i.parentId === story.id && i.type === "decision" && isLiveItem(i),
   );
   // An edit to the story itself or to a criterion (e.g. Jira drift) touches everything agreed on it.
   const storyWide = editedId === story.id || ctx.criteria.some((c) => c.id === editedId && c.storyId === story.id);

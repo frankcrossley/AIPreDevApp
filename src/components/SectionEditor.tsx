@@ -1,0 +1,285 @@
+"use client";
+// One template section of the notebook, as a Tiptap editor (ADR-002, ADR-020).
+// Autosaves the whole section; the server decides what changed. Edits to agreed content come
+// back as "needs confirmation" and wait for the person to save and reopen, or undo.
+import type { JSONContent } from "@tiptap/core";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import StarterKit from "@tiptap/starter-kit";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createStoryAction, saveSectionAction, setBlockingAction } from "@/app/actions";
+import type { ChipInfo, EditorLine, LineSource } from "@/domain/notebook-view";
+import { CHIP_LABELS, NotebookContext, NotebookLine, newClientId } from "./notebook/line";
+
+const AUTOSAVE_MS = 700;
+
+interface Props {
+  storyId: string;
+  epicId: string;
+  section: string;
+  required: boolean;
+  initialLines: EditorLine[];
+  chips: Record<string, ChipInfo>;
+  sources: Record<string, LineSource>;
+}
+
+type SaveState =
+  | { kind: "saved" }
+  | { kind: "saving" }
+  | { kind: "unsaved" }
+  | { kind: "error"; message: string }
+  | { kind: "confirm"; warning: string };
+
+function toDoc(lines: EditorLine[]): JSONContent {
+  const content = lines.map((l) => ({
+    type: "paragraph",
+    attrs: { blockId: l.blockId, itemId: l.itemId, itemType: l.itemType, itemText: l.itemText },
+    content: l.text ? [{ type: "text", text: l.text }] : [],
+  }));
+  return { type: "doc", content: content.length ? content : [{ type: "paragraph" }] };
+}
+
+/** Gives every non-empty line a block id (and de-duplicates pasted ones) before saving. */
+function assignIds(editor: Editor) {
+  const seen = new Set<string>();
+  const tr = editor.state.tr;
+  editor.state.doc.forEach((node, pos) => {
+    if (node.type.name !== "paragraph") return;
+    const id = node.attrs.blockId as string | null;
+    if (node.textContent.trim() && (!id || seen.has(id))) {
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, blockId: newClientId("blk") });
+    } else if (id) {
+      seen.add(id);
+    }
+  });
+  if (tr.docChanged) {
+    tr.setMeta("addToHistory", false).setMeta("assignIds", true);
+    editor.view.dispatch(tr);
+  }
+}
+
+function toLines(editor: Editor) {
+  const lines: { blockId: string | null; itemId: string | null; itemType: string | null; text: string; itemText: string | null }[] = [];
+  editor.state.doc.forEach((node) => {
+    if (node.type.name !== "paragraph") return;
+    lines.push({
+      blockId: node.attrs.blockId,
+      itemId: node.attrs.itemId,
+      itemType: node.attrs.itemType,
+      text: node.textContent,
+      itemText: node.attrs.itemText,
+    });
+  });
+  return lines;
+}
+
+export function SectionEditor({ storyId, epicId, section, required, initialLines, chips, sources }: Props) {
+  const router = useRouter();
+  const [state, setState] = useState<SaveState>({ kind: "saved" });
+  const [notice, setNotice] = useState<string | null>(null);
+  const lastSaved = useRef<JSONContent>(toDoc(initialLines));
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlight = useRef(false);
+  const queued = useRef<boolean | null>(null);
+  const holding = useRef(false);
+
+  const saveOnce = useCallback(
+    async (editor: Editor, confirmReopen: boolean) => {
+      assignIds(editor);
+      const snapshot = editor.getJSON();
+      setState({ kind: "saving" });
+      try {
+        const result = await saveSectionAction(storyId, section, toLines(editor), confirmReopen);
+        if (result.status === "needs_confirmation") {
+          holding.current = true;
+          setState({ kind: "confirm", warning: result.warning });
+        } else {
+          holding.current = false;
+          lastSaved.current = snapshot;
+          setState(JSON.stringify(editor.getJSON()) === JSON.stringify(snapshot) ? { kind: "saved" } : { kind: "unsaved" });
+        }
+      } catch (e) {
+        setState({ kind: "error", message: e instanceof Error ? e.message : "Couldn't save" });
+      }
+    },
+    [storyId, section],
+  );
+
+  /** One save at a time. A save asked for meanwhile runs as soon as the current one lands. */
+  const save = useCallback(
+    async (editor: Editor, confirmReopen: boolean) => {
+      if (inFlight.current) {
+        queued.current = (queued.current ?? false) || confirmReopen;
+        return;
+      }
+      inFlight.current = true;
+      try {
+        let next: boolean | null = confirmReopen;
+        while (next !== null) {
+          queued.current = null;
+          await saveOnce(editor, next);
+          next = holding.current ? null : queued.current;
+        }
+      } finally {
+        inFlight.current = false;
+      }
+    },
+    [saveOnce],
+  );
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        paragraph: false,
+        heading: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        listKeymap: false,
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+        hardBreak: false,
+        bold: false,
+        italic: false,
+        strike: false,
+        code: false,
+        underline: false,
+        link: false,
+      }),
+      NotebookLine,
+    ],
+    content: toDoc(initialLines),
+    editorProps: {
+      attributes: {
+        class: "outline-none min-h-[1.75rem]",
+        "aria-label": `${section} notes`,
+      },
+    },
+    onUpdate: ({ editor, transaction }) => {
+      if (transaction.getMeta("assignIds")) return;
+      if (timer.current) clearTimeout(timer.current);
+      if (holding.current) return; // Waiting for "Save and reopen" or "Undo my edit".
+      setState({ kind: "unsaved" });
+      timer.current = setTimeout(() => void save(editor, false), AUTOSAVE_MS);
+    },
+  });
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  // Ready once the editor's React node views have mounted and painted.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!editor) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [editor]);
+
+  const context = useMemo(
+    () => ({
+      chips,
+      sources,
+      required,
+      setBlocking: (itemId: string, blocking: boolean) => {
+        void setBlockingAction(itemId, blocking).then(() => router.refresh());
+      },
+    }),
+    [chips, sources, required, router],
+  );
+
+  const turnInto = (type: string) => {
+    if (!editor) return;
+    const { from, to, $from } = editor.state.selection;
+    const selected = editor.state.doc.textBetween(from, to).trim();
+    if (!selected) return;
+    if (type === "story") {
+      void createStoryAction(epicId, selected).then(({ key }) => setNotice(`Created ${key} as a draft story.`));
+      return;
+    }
+    const line = $from.parent;
+    const pos = $from.before();
+    editor
+      .chain()
+      .command(({ tr }) => {
+        tr.setNodeMarkup(pos, undefined, {
+          ...line.attrs,
+          itemType: type,
+          itemId: newClientId("itm"),
+          itemText: selected === line.textContent.trim() ? null : selected,
+        });
+        return true;
+      })
+      .setTextSelection(to)
+      .run();
+  };
+
+  return (
+    <section className="mt-6" data-section={section} data-testid={`section-${section}`} data-ready={ready ? "true" : undefined}>
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-mono text-xs uppercase tracking-wide text-muted">{section}</h2>
+        <span data-testid="save-state" className="font-mono text-[11px] text-muted" aria-live="polite">
+          {state.kind === "saving" ? "Saving" : state.kind === "unsaved" ? "Not saved yet" : state.kind === "error" ? `Not saved: ${state.message}` : state.kind === "saved" ? "Saved" : ""}
+        </span>
+      </div>
+      {state.kind === "confirm" && editor && (
+        <div role="alert" data-testid="reopen-warning" className="mt-2 rounded border border-alert bg-alert-bg px-3 py-2 text-sm text-ink">
+          <p>{state.warning}</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" className="rounded bg-ink px-3 py-1 text-paper" onClick={() => void save(editor, true)}>
+              Save and reopen
+            </button>
+            <button
+              type="button"
+              className="rounded border border-line px-3 py-1"
+              onClick={() => {
+                holding.current = false;
+                editor.commands.setContent(lastSaved.current, { emitUpdate: false });
+                setState({ kind: "saved" });
+              }}
+            >
+              Undo my edit
+            </button>
+          </div>
+        </div>
+      )}
+      {notice && (
+        <p role="status" className="mt-2 text-sm text-muted">
+          {notice}
+        </p>
+      )}
+      <NotebookContext.Provider value={context}>
+        <div className="mt-1 text-[15px] leading-7">
+          <EditorContent editor={editor} />
+        </div>
+      </NotebookContext.Provider>
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          shouldShow={({ state: s }) => !s.selection.empty && s.selection.$from.sameParent(s.selection.$to)}
+        >
+          <div role="toolbar" aria-label="Turn into" className="flex items-center gap-1 rounded border border-line bg-panel px-2 py-1 text-xs shadow">
+            <span className="mr-1 font-mono uppercase text-muted">Turn into</span>
+            {["decision", "question", "assumption", "risk"].map((t) => (
+              <button key={t} type="button" className="rounded px-2 py-0.5 hover:bg-sunk" onClick={() => turnInto(t)}>
+                {CHIP_LABELS[t]}
+              </button>
+            ))}
+            <button type="button" className="rounded px-2 py-0.5 hover:bg-sunk" onClick={() => turnInto("story")}>
+              Story
+            </button>
+          </div>
+        </BubbleMenu>
+      )}
+    </section>
+  );
+}

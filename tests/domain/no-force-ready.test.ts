@@ -55,7 +55,8 @@ describe("there is no way to force Ready (code guard)", () => {
     expect(src).toMatch(/signOff\(story/);
     const writes = [...src.matchAll(/\b(state|signedOffBy|signedOffAt):\s*([^,}\n]+)/g)].map((m) => `${m[1]}: ${m[2].trim()}`);
     expect(writes.length).toBeGreaterThan(0);
-    for (const w of writes) expect(w).toMatch(/^(state|signedOffBy|signedOffAt): r\.story\.(state|signedOffBy|signedOffAt)$/);
+    // The only literal state allowed is "draft", for a newly created story.
+    for (const w of writes) expect(w).toMatch(/^((state|signedOffBy|signedOffAt): r\.story\.(state|signedOffBy|signedOffAt)|state: "draft")$/);
   });
 
   it("no route handler or server action writes a story yet", () => {

@@ -91,3 +91,23 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Context.** "Teams can add checks" needs code behind every check, and the seed leaves some fields implicit.
 **Decision.** Team checks are chosen from the definitions in `CHECK_DEFINITIONS` (`src/domain/checks.ts`); new kinds of check are added in code. The seed normaliser infers parent and hat-note target types from ids, assigns read-backs without an `epicId` to the only epic (and refuses with more than one), spaces seeded stances a minute apart to keep their order, and trusts seeded states and sign-offs as they are. The simulated Jira config is stored as a `Setting` row (ADR-004).
 **Consequence.** Seed files stay short and readable. A second epic in the seed needs `epicId` on its read-backs.
+
+## ADR-019 · One route for the workspace; "viewing as" is a cookie
+**Context.** Selecting an item must change the URL without changing the screen (ADR-001), and actions need to know who is acting without auth (ADR-003).
+**Decision.** Every view lives at `/w/[key]`, where the key is a story or an epic. `src/app/w/layout.tsx` renders the header and the backlog and persists across navigation; the page renders the centre and right columns. `/` redirects to the first story. The header's person switcher sets a `viewing-as` cookie through a server action, and `src/server/actor.ts` resolves it, falling back to the first product person.
+**Consequence.** Session mode (bolt 8) becomes a state of the same layout, not a route. Every server action records the resolved person.
+
+## ADR-020 · How the notebook maps to Blocks and Items
+**Context.** Tiptap edits a document; checks and citations work on Blocks and Items (ADR-002).
+**Decision.** Each template section is its own Tiptap editor. Each paragraph is one Block, and carries `blockId`, and when it has a chip, `itemId`, `itemType` and `itemText` (the item's own text when it came from part of the line). The editor assigns ids to new lines and chips, so saves need no id round trip. A section autosaves as a whole list of lines; the pure `diffSection()` in `src/domain/notebook.ts` works out the create, update, delete, archive and restore ops, and `src/server/notebook.ts` writes them with an Event each. If the ops touch agreed content, the server answers "needs confirmation" with the reopen warning instead of saving, and the editor holds further autosaves until the person chooses "Save and reopen" or "Undo my edit". Acceptance criteria are shown read-only until shaping (bolt 6).
+**Consequence.** Blocks keep stable ids for citations. The domain decides what changed and what counts as agreed; the editor only reports lines.
+
+## ADR-021 · Turning an item back into text archives it
+**Context.** "Structure can be removed", but the item's history (its stances, who raised it) must survive.
+**Decision.** Items get an `archived` status. "Turn back into plain text", deleting a line, or changing a line's chip archives the old item and logs `item.archived`. Undoing the change restores it with its stances. Checks, the panel and agreement ignore archived items.
+**Consequence.** Nothing is deleted except Blocks the person removed; their citations go with them.
+
+## ADR-022 · Who is asked for a stance on a new decision
+**Context.** A decision needs required stances before it can be agreed. The seeded decision asks Priya, Sam, Marcus and Dan, but a new one has no list.
+**Decision.** A new decision asks the story lead, its author and the epic's tech lead. The stance controls in bolt 4 let people change the list.
+**Consequence.** New decisions start small; the lead widens them when the decision touches finance or sales.

@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { resetDb } from "./helpers";
+
+test.beforeEach(async () => {
+  await resetDb();
+});
 
 test("the backlog shows BILL-150's computed meters", async ({ page }) => {
   await page.goto("/");
-  const row = page.getByTestId("story-BILL-150");
+  const row = page.getByTestId("backlog-BILL-150");
   await expect(row).toContainText("Plan changes mid-cycle");
-  await expect(row.getByTestId("right-thing")).toHaveText("4 of 5");
-  await expect(row.getByTestId("built-right")).toHaveText("5 of 8");
+  await expect(row).toContainText("Right 4/5");
+  await expect(row).toContainText("Built 5/8");
 });

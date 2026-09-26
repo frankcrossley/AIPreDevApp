@@ -23,3 +23,20 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
+
+@layer base {
+  a {
+    color: var(--color-agreed);
+  }
+}
+
+[data-highlighted="true"] {
+  outline: 2px solid var(--color-alert);
+  outline-offset: 2px;
+  background: var(--color-alert-bg);
+  transition: background 0.3s;
+}
+
+.ProseMirror {
+  white-space: pre-wrap;
+}

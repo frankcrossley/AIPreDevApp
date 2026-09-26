@@ -83,7 +83,8 @@ export interface Block {
 }
 
 export type ItemType = "decision" | "question" | "assumption" | "risk" | "talking_point" | (string & {});
-export type ItemStatus = "open" | "resolved" | "dropped";
+/** `archived`: turned back into plain text. Kept with its stances for history (ADR-021). */
+export type ItemStatus = "open" | "resolved" | "dropped" | "archived";
 
 export interface Item {
   id: string;

@@ -98,13 +98,16 @@ export function latestStances(stances: Stance[]): Map<string, Stance> {
 function storyContentIds(story: Story, ctx: DomainSnapshot): Set<string> {
   const ids = new Set<string>([story.id]);
   for (const b of ctx.blocks) if (b.parentType === "story" && b.parentId === story.id) ids.add(b.id);
-  for (const i of ctx.items) if (i.parentType === "story" && i.parentId === story.id) ids.add(i.id);
+  for (const i of ctx.items) if (i.parentType === "story" && i.parentId === story.id && isLiveItem(i)) ids.add(i.id);
   for (const c of ctx.criteria) if (c.storyId === story.id) ids.add(c.id);
   return ids;
 }
 
+/** Items that still count: archived (turned back into text) and dropped items are history only. */
+export const isLiveItem = (i: { status: string }) => i.status !== "archived" && i.status !== "dropped";
+
 const storyItems = (story: Story, ctx: DomainSnapshot) =>
-  ctx.items.filter((i) => i.parentType === "story" && i.parentId === story.id);
+  ctx.items.filter((i) => i.parentType === "story" && i.parentId === story.id && isLiveItem(i));
 
 const openHatNotes = (story: Story, ctx: DomainSnapshot) => {
   const ids = storyContentIds(story, ctx);
@@ -205,7 +208,7 @@ const EVALUATORS: Record<string, Evaluator> = {
 
   stances_complete: (story, ctx) => {
     const blockers: Blocker[] = [];
-    for (const item of storyItems(story, ctx).filter((i) => i.type === "decision" && i.status !== "dropped")) {
+    for (const item of storyItems(story, ctx).filter((i) => i.type === "decision")) {
       const given = new Set(
         ctx.stances.filter((s) => s.itemId === item.id && s.round === item.stanceRound).map((s) => s.personId),
       );

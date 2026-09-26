@@ -1,5 +1,8 @@
 {
   "_readme": "Relative dates: daysAgo, createdDaysAgo and inDays are resolved against 'now' when seeding, so drafts expire realistically in demos. All content is illustrative.",
+  "team": {
+    "name": "Billing squad"
+  },
   "people": [
     {
       "id": "priya",

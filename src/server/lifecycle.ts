@@ -2,6 +2,7 @@
 // Every write goes through a guarded domain function; nothing here decides a state itself.
 import { randomUUID } from "node:crypto";
 import { reopenOnEdit, signOff, transition, type TransitionOptions, type TransitionResult } from "@/domain/lifecycle";
+import { nextStoryKey } from "@/domain/story-keys";
 import type { StoryState } from "@/domain/types";
 import type { Db } from "./prisma";
 import { loadSnapshot } from "./snapshot";
@@ -60,4 +61,25 @@ export async function reopenStoryOnEdit(db: Db, storyId: string, editedId: strin
     }),
   ]);
   return r;
+}
+
+/** "Turn into → Story": a new draft story in the same epic, led by whoever made it. */
+export async function createDraftStory(db: Db, input: { epicId: string; title: string; actorId: string }) {
+  const ctx = await loadSnapshot(db);
+  const epic = ctx.epics.find((e) => e.id === input.epicId);
+  if (!epic) throw new Error(`No epic ${input.epicId}`);
+  const title = input.title.trim();
+  if (!title) throw new Error("A story needs a title");
+  const template = ctx.templates.find((t) => t.name === "story") ?? ctx.templates[0];
+  const key = nextStoryKey(epic, ctx);
+  const id = key.toLowerCase();
+  await db.$transaction([
+    db.story.create({
+      data: { id, key, epicId: epic.id, title, leadId: input.actorId, templateId: template.id, state: "draft" },
+    }),
+    db.event.create({
+      data: { id: randomUUID(), type: "story.created", actorId: input.actorId, subjectType: "story", subjectId: id, payloadJson: JSON.stringify({ key, title }) },
+    }),
+  ]);
+  return { id, key };
 }

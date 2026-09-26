@@ -294,6 +294,9 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
       readBacks,
       sessions,
     },
-    settings: seed.jira ? { jira: seed.jira } : {},
+    settings: {
+      ...(seed.team ? { team: seed.team } : {}),
+      ...(seed.jira ? { jira: seed.jira } : {}),
+    },
   };
 }
