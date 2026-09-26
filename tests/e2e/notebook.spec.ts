@@ -81,11 +81,11 @@ test("Questions can be marked blocking", async ({ page }) => {
 });
 
 test("Editing agreed content reopens it", async ({ page }) => {
-  // Given the decision is agreed by Priya, Sam and Dan, and the story is signed off.
+  // Given the decision is agreed by Priya, Sam and Dan, and Priya has signed the story off as Ready.
   await db.stance.deleteMany({ where: { itemId: "it-d1", personId: "marcus" } });
   await db.stance.create({ data: { id: "st-dan", itemId: "it-d1", personId: "dan", value: "agree", round: 1, createdAt: new Date() } });
   await db.item.update({ where: { id: "it-d1" }, data: { requiredStanceIdsJson: JSON.stringify(["priya", "sam", "dan"]) } });
-  await db.story.update({ where: { id: "bill-150" }, data: { signedOffBy: "priya", signedOffAt: new Date() } });
+  await db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: new Date() } });
 
   await openStory(page, "BILL-150");
   await page.getByLabel("Viewing as").selectOption({ label: "Dan" });
@@ -103,7 +103,8 @@ test("Editing agreed content reopens it", async ({ page }) => {
   await waitSaved(page, "What we think");
   await expect(page.getByTestId("card-it-d1")).toContainText("Waiting on Priya, Sam, Dan");
   const story = await db.story.findUniqueOrThrow({ where: { id: "bill-150" } });
-  expect(story.signedOffBy).toBeNull();
+  expect(story).toMatchObject({ state: "in_refinement", signedOffBy: null });
+  await expect(page.getByTestId("state-pill")).toHaveText("In refinement");
   expect((await db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(2);
 });
 
@@ -118,4 +119,17 @@ test("Undo my edit leaves agreed content untouched", async ({ page }) => {
   await expect(line(page, "b4")).toHaveText(/Upgrades apply immediately, charged by the day\./);
   await expect(line(page, "b4")).not.toContainText("Maybe.");
   expect((await db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(1);
+});
+
+test("Adding a line to a Ready story reopens it too", async ({ page }) => {
+  await db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: new Date() } });
+  await openStory(page, "BILL-150");
+  await newLine(page, "Edge cases");
+  await page.keyboard.type("Annual plans renew mid-cycle too.");
+  const warning = section(page, "Edge cases").getByTestId("reopen-warning");
+  await expect(warning).toContainText("Priya, Sam and Marcus agreed this. Saving reopens it for all three.");
+  await warning.getByRole("button", { name: "Save and reopen" }).click();
+  await waitSaved(page, "Edge cases");
+  await expect(page.getByTestId("state-pill")).toHaveText("In refinement");
+  expect((await db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(2);
 });

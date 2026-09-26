@@ -13,9 +13,14 @@ export interface MeterLine {
   anchor: string | null;
 }
 
-function Meter({ name, lines, open, onToggle }: { name: string; lines: MeterLine[]; open: boolean; onToggle: () => void }) {
-  const passed = lines.filter((l) => l.passed).length;
-  const ok = passed === lines.length;
+interface MeterData {
+  meter: { passed: number; total: number };
+  lines: MeterLine[];
+}
+
+function Meter({ name, data, open, onToggle }: { name: string; data: MeterData; open: boolean; onToggle: () => void }) {
+  const { passed, total } = data.meter;
+  const ok = passed === total;
   return (
     <button
       type="button"
@@ -26,20 +31,20 @@ function Meter({ name, lines, open, onToggle }: { name: string; lines: MeterLine
     >
       <span className="block font-mono text-[11px] uppercase tracking-wide text-muted">{name}</span>
       <span data-testid="meter-count" className={`font-serif text-xl ${ok ? "text-agreed" : "text-ink"}`}>
-        {passed} of {lines.length}
+        {passed} of {total}
       </span>
     </button>
   );
 }
 
-export function Meters({ rightThing, builtRight }: { rightThing: MeterLine[]; builtRight: MeterLine[] }) {
+export function Meters({ rightThing, builtRight }: { rightThing: MeterData; builtRight: MeterData }) {
   const [open, setOpen] = useState<"Right thing" | "Built right" | null>(null);
-  const lines = open === "Right thing" ? rightThing : open === "Built right" ? builtRight : [];
+  const lines = open === "Right thing" ? rightThing.lines : open === "Built right" ? builtRight.lines : [];
   return (
     <div className="mt-4">
       <div className="flex items-center gap-3">
-        <Meter name="Right thing" lines={rightThing} open={open === "Right thing"} onToggle={() => setOpen(open === "Right thing" ? null : "Right thing")} />
-        <Meter name="Built right" lines={builtRight} open={open === "Built right"} onToggle={() => setOpen(open === "Built right" ? null : "Built right")} />
+        <Meter name="Right thing" data={rightThing} open={open === "Right thing"} onToggle={() => setOpen(open === "Right thing" ? null : "Right thing")} />
+        <Meter name="Built right" data={builtRight} open={open === "Built right"} onToggle={() => setOpen(open === "Built right" ? null : "Built right")} />
         <span className="text-sm text-muted">Both must pass before this goes to Jira as Ready.</span>
       </div>
       {open && (

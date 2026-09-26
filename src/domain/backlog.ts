@@ -45,7 +45,7 @@ export interface BacklogEpic {
   stories: BacklogRow[];
 }
 
-const meter = (results: { passed: boolean }[]): Meter => ({
+export const meterOf = (results: { passed: boolean }[]): Meter => ({
   passed: results.filter((r) => r.passed).length,
   total: results.length,
 });
@@ -67,8 +67,8 @@ export function backlogRow(story: Story, ctx: DomainSnapshot, unpromised: Set<st
     state: story.state,
     stateLabel: STATE_LABELS[story.state],
     ready: story.state === "ready" || story.state === "exported",
-    rightThing: meter(evaluateRightThing(story, ctx)),
-    builtRight: meter(evaluateBuiltRight(story, ctx)),
+    rightThing: meterOf(evaluateRightThing(story, ctx)),
+    builtRight: meterOf(evaluateBuiltRight(story, ctx)),
     flags,
   };
 }

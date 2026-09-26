@@ -32,6 +32,8 @@ export interface NotebookView {
   sections: { name: string; required: boolean; lines: EditorLine[] }[];
   chips: Record<string, ChipInfo>;
   sources: Record<string, LineSource>;
+  /** Criteria a hat proposed that no person has confirmed yet: drawn dashed. */
+  unconfirmedCriteria: string[];
 }
 
 const SOURCE_KIND_LABEL = { call: "Call", survey: "Survey", ticket: "Ticket", doc: "Doc", chat: "Comment", code: "Code", adr: "ADR" } as const;
@@ -79,6 +81,7 @@ export function notebookView(story: Story, ctx: DomainSnapshot, sections: string
   return {
     chips,
     sources,
+    unconfirmedCriteria: ctx.criteria.filter((c) => c.storyId === story.id && c.origin === "hat" && !c.confirmedBy).map((c) => c.id),
     sections: sections.map((name) => ({
       name,
       required: required.has(name),

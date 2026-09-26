@@ -203,7 +203,13 @@ export function SectionEditor({ storyId, epicId, section, required, initialLines
     const selected = editor.state.doc.textBetween(from, to).trim();
     if (!selected) return;
     if (type === "story") {
-      void createStoryAction(epicId, selected).then(({ key }) => setNotice(`Created ${key} as a draft story.`));
+      // Link the new story to this line once the line is saved, so its source resolves.
+      const sourceBlockId = lastSaved.current.content?.some((n) => n.attrs?.blockId === $from.parent.attrs.blockId)
+        ? ($from.parent.attrs.blockId as string)
+        : null;
+      void createStoryAction(epicId, selected, sourceBlockId)
+        .then(({ key }) => setNotice(`Created ${key} as a draft story.`))
+        .catch((e: unknown) => setNotice(e instanceof Error ? e.message : "Couldn't create the story."));
       return;
     }
     const line = $from.parent;

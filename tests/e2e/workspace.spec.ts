@@ -13,6 +13,10 @@ test("Selecting a story keeps the user on the same screen", async ({ page }) => 
 
   await expect(page).toHaveURL(/\/w\/BILL-150$/);
   await expect(page.getByTestId("story-title")).toHaveText("Plan changes mid-cycle");
+  for (const name of ["What we heard", "What we think", "Edge cases"]) {
+    await expect(page.getByTestId(`section-${name}`)).toBeVisible();
+  }
+  await expect(page.locator("#block-b1")).toContainText("Acme upgraded on the 20th");
   await expect(page.getByRole("tab", { name: "For this item · 2" })).toHaveAttribute("aria-selected", "true");
   // The URL changed but the layout didn't: the left column is the same element.
   await expect(page.getByTestId("backlog")).toHaveAttribute("data-marker", "same-layout");

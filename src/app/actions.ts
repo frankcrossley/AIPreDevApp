@@ -43,8 +43,8 @@ export async function setBlockingAction(itemId: string, blocking: boolean): Prom
   refresh();
 }
 
-export async function createStoryAction(epicId: string, title: string): Promise<{ key: string }> {
-  const { key } = await createDraftStory(prisma, { epicId, title, actorId: await actor() });
+export async function createStoryAction(epicId: string, title: string, sourceBlockId: string | null): Promise<{ key: string }> {
+  const { key } = await createDraftStory(prisma, { epicId, title, sourceBlockId, actorId: await actor() });
   refresh();
   return { key };
 }

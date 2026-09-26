@@ -64,7 +64,7 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 
 ## ADR-013 · Only the lifecycle module writes story state
 **Context.** "There is no way to force Ready" has to hold for code added in later bolts, not just today's.
-**Decision.** `src/server/lifecycle.ts` is the only code in `src/` that writes Story rows, and it only writes the state and sign-off returned by the domain's `transition`, `signOff` and `reopenOnEdit`. `transition()` refuses `ready` outright; only `signOff()` reaches it. A static test (`tests/domain/no-force-ready.test.ts`) fails the build if anything else writes stories. The seeder writes outside `src/`, in `prisma/`.
+**Decision.** `src/server/lifecycle.ts` is the only code in `src/` that writes Story rows, and it only writes the state and sign-off returned by the domain's `transition`, `signOff` and `reopenOnEdit`, or a new story built by `newDraftStory` (always `draft`). Other modules that need to reopen a story take `reopenWrites()` from it and put them in their own transaction. `transition()` refuses `ready` outright; only `signOff()` reaches it. A static test (`tests/domain/no-force-ready.test.ts`) fails the build if anything else writes stories. The seeder writes outside `src/`, in `prisma/`.
 **Consequence.** New routes that change a story's state must call the lifecycle module. The sign-off route in bolt 4 adds an API test on top.
 
 ## ADR-014 · `db:reset` deletes the local file instead of `prisma migrate reset`
@@ -74,7 +74,7 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 
 ## ADR-015 · Ready is reached once and left only through a reopen
 **Context.** Checks are computed on read (ADR-007), but the lifecycle also stores `state`. The seed has BILL-152 exported while the epic's PRFAQ is still a draft, so its checks fail today.
-**Decision.** `ready` is reached only through `signOff()`: the lead, every check passing, and the agreed guard (signing off from `in_refinement` passes through `agreed` in one step). After that, only `reopenOnEdit()` moves the story back. Once a story is agreed, ready or exported, all its content counts as agreed, so any edit to it (or a Jira-side change to a criterion) reopens it and asks everyone who agreed on its decisions again. Checks that start failing on a Ready story without an edit (for example the epic's PRFAQ going back to draft) don't silently revert it; showing that as a warning is a UI question for bolt 4.
+**Decision.** `ready` is reached only through `signOff()`: the lead, every check passing, and the agreed guard (signing off from `in_refinement` passes through `agreed` in one step). After that, only `reopenOnEdit()` moves the story back. Once a story is agreed, ready or exported, all its content counts as agreed, so any change to it (editing, adding or removing a line, marking a question blocking, or a Jira-side change to a criterion) reopens it and asks everyone who agreed on its decisions again. The reopen is written in the same transaction as the change. Checks that start failing on a Ready story without an edit (for example the epic's PRFAQ going back to draft) don't silently revert it; showing that as a warning is a UI question for bolt 4.
 **Consequence.** A stored `ready` always had a valid sign-off when it was set. Open question for the seed owner: BILL-152's lead is Dan but it's signed off by Priya.
 
 ## ADR-016 · Who owns what blocks Ready
@@ -100,14 +100,24 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 ## ADR-020 · How the notebook maps to Blocks and Items
 **Context.** Tiptap edits a document; checks and citations work on Blocks and Items (ADR-002).
 **Decision.** Each template section is its own Tiptap editor. Each paragraph is one Block, and carries `blockId`, and when it has a chip, `itemId`, `itemType` and `itemText` (the item's own text when it came from part of the line). The editor assigns ids to new lines and chips, so saves need no id round trip. A section autosaves as a whole list of lines; the pure `diffSection()` in `src/domain/notebook.ts` works out the create, update, delete, archive and restore ops, and `src/server/notebook.ts` writes them with an Event each. If the ops touch agreed content, the server answers "needs confirmation" with the reopen warning instead of saving, and the editor holds further autosaves until the person chooses "Save and reopen" or "Undo my edit". Acceptance criteria are shown read-only until shaping (bolt 6).
-**Consequence.** Blocks keep stable ids for citations. The domain decides what changed and what counts as agreed; the editor only reports lines.
+**Consequence.** Blocks keep stable ids for citations. The domain decides what changed and what counts as agreed; the editor only reports lines. This amends ADR-002: a chip is a set of attributes on the line's paragraph node (rendered by a React node view), not a separate inline node, so a line carries at most one item. Moving a line between sections is a delete plus a create.
 
 ## ADR-021 · Turning an item back into text archives it
 **Context.** "Structure can be removed", but the item's history (its stances, who raised it) must survive.
-**Decision.** Items get an `archived` status. "Turn back into plain text", deleting a line, or changing a line's chip archives the old item and logs `item.archived`. Undoing the change restores it with its stances. Checks, the panel and agreement ignore archived items.
+**Decision.** Items get an `archived` status. "Turn back into plain text", deleting a line, or changing a line's chip archives the old item and logs `item.archived`. Undoing the change restores it with its stances, as `open` (its earlier status isn't kept). Checks, the panel and agreement ignore archived and `dropped` items alike.
 **Consequence.** Nothing is deleted except Blocks the person removed; their citations go with them.
 
 ## ADR-022 · Who is asked for a stance on a new decision
 **Context.** A decision needs required stances before it can be agreed. The seeded decision asks Priya, Sam, Marcus and Dan, but a new one has no list.
 **Decision.** A new decision asks the story lead, its author and the epic's tech lead. The stance controls in bolt 4 let people change the list.
 **Consequence.** New decisions start small; the lead widens them when the decision touches finance or sales.
+
+## ADR-023 · Notebook edits land directly; drafts come from outside the notebook
+**Context.** `docs/domain.md` calls a Draft "anything added outside a session", yet 02-notebook has people typing items straight into the notebook, and 03-right-panel has drafts from people and sources waiting for the lead.
+**Decision.** For the prototype, anyone "viewing as" a person can type into a story's notebook, and it lands directly as unagreed Blocks and Items. Agreed content stays protected by the reopen rule (ADR-015), so a direct edit can never change agreed content silently. Drafts are contributions that arrive from outside the notebook: people's suggestions from the tray, discovery sources and ingestion (bolts 3 and 7). Rule 6 applies to those.
+**Consequence.** Open question for the product owner: should notebook edits by people who aren't the lead, outside a session, become drafts instead? If so, bolt 3 routes them through the draft queue.
+
+## ADR-024 · New stories from "Turn into", and backlog labels
+**Context.** "Turn into → Story" needs a lead, template and key, and the backlog needs one label per state.
+**Decision.** `newDraftStory` makes a `draft` story in the same epic. Whoever creates it leads it (so they triage it), it uses the template named `story`, its key is one past the highest number in use with the epic's prefix, and its id is the key in lower case. Its first line quotes the selection and cites the line it came from. In the backlog, exported stories are labelled Ready, with their sprint.
+**Consequence.** The link from new story to source line survives as a citation. Two people creating stories at the same moment could clash on a key; the database's unique key refuses the second, and they retry.

@@ -1,4 +1,5 @@
 // Notebook saves against a real database: autosave, the held edit to agreed content, and reopening.
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDraftStory } from "@/server/lifecycle";
 import { saveSection, setItemBlocking } from "@/server/notebook";
@@ -65,8 +66,50 @@ describe("saving a section", () => {
     await expect(setItemBlocking(env.db, "it-d1", true, "priya")).rejects.toThrow(/question/);
   });
 
-  it("creates a draft story from selected text", async () => {
-    expect(await createDraftStory(env.db, { epicId: "bill-142", title: "Downgrade rules", actorId: "marcus" })).toEqual({ id: "bill-164", key: "BILL-164" });
+  it("creates a draft story from selected text, linked to its line", async () => {
+    expect(await createDraftStory(env.db, { epicId: "bill-142", title: "Downgrade rules", actorId: "marcus", sourceBlockId: "b5", now: NOW })).toEqual({ id: "bill-164", key: "BILL-164" });
     expect(await env.db.story.findUniqueOrThrow({ where: { id: "bill-164" } })).toMatchObject({ state: "draft", leadId: "marcus", templateId: "tpl-story" });
+    expect(await env.db.citation.findFirstOrThrow({ where: { fromId: "bill-164-b1" } })).toMatchObject({ toType: "block", toId: "b5" });
+  });
+
+  it("adding a line to a Ready story reopens it and saves the line in one go", async () => {
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
+    const edge = [
+      { blockId: "b6", itemId: "it-q1", itemType: "question", text: "What happens on a downgrade mid-cycle?" },
+      { blockId: "b7", itemId: null, itemType: null, text: "A customer changes plan twice in one month. Probably fine, same rule applies." },
+      { blockId: "blk-late", itemId: null, itemType: null, text: "Annual plans too." },
+    ];
+    const input = { storyId: "bill-150", section: "Edge cases", lines: edge, actorId: "sam", now: NOW };
+    expect(await saveSection(env.db, { ...input, confirmReopen: false })).toMatchObject({ status: "needs_confirmation", personIds: ["priya", "sam", "marcus"] });
+    expect(await env.db.block.findUnique({ where: { id: "blk-late" } })).toBeNull();
+
+    expect(await saveSection(env.db, { ...input, confirmReopen: true })).toEqual({ status: "saved", reopened: true });
+    expect(await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).toMatchObject({ state: "in_refinement", signedOffBy: null });
+    expect((await env.db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(2);
+    expect(await env.db.block.findUnique({ where: { id: "blk-late" } })).not.toBeNull();
+  });
+
+  it("a failed edit leaves the story as it was (reopen and edit are one transaction)", async () => {
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
+    // Make the block insert fail inside the database, after the reopen writes are queued.
+    const sqlite = new Database(env.file);
+    sqlite.exec("CREATE TRIGGER no_blocks BEFORE INSERT ON Block BEGIN SELECT RAISE(ABORT, 'refused'); END;");
+    sqlite.close();
+    const lines = [{ blockId: "blk-x", itemId: null, itemType: null, text: "A new line" }];
+    await expect(saveSection(env.db, { storyId: "bill-150", section: "Edge cases", lines, actorId: "sam", confirmReopen: true, now: NOW })).rejects.toThrow();
+    expect((await env.db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(1);
+    expect(await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).toMatchObject({ state: "ready", signedOffBy: "priya" });
+  });
+
+  it("marking a question blocking on a Ready story reopens it", async () => {
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
+    await setItemBlocking(env.db, "it-q1", false, "priya");
+    await setItemBlocking(env.db, "it-q1", true, "priya");
+    expect(await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).toMatchObject({ state: "in_refinement", signedOffBy: null });
+  });
+
+  it("refuses to block an archived item", async () => {
+    await env.db.item.update({ where: { id: "it-q1" }, data: { status: "archived" } });
+    await expect(setItemBlocking(env.db, "it-q1", true, "priya")).rejects.toThrow(/live/);
   });
 });

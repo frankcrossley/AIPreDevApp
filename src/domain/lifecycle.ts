@@ -123,18 +123,22 @@ export interface ReopenResult {
  * An edit to agreed content, or a Jira-side change, reopens the story: back to in_refinement,
  * sign-off cleared, and a new stance round for the decisions touched. Once a story is agreed,
  * ready or exported, all of its content counts as agreed, so any edit reopens it (ADR-015).
- * `editedId` is the block, item, criterion or story that changed.
+ * `editedId` is the block, item, criterion or story that changed (or several of them).
  */
-export function reopenOnEdit(story: Story, editedId: string, ctx: DomainSnapshot): ReopenResult {
+export function reopenOnEdit(story: Story, editedId: string | string[], ctx: DomainSnapshot): ReopenResult {
   const decisions = ctx.items.filter(
     (i) => i.parentType === "story" && i.parentId === story.id && i.type === "decision" && isLiveItem(i),
   );
-  // An edit to the story itself or to a criterion (e.g. Jira drift) touches everything agreed on it.
-  const storyWide = editedId === story.id || ctx.criteria.some((c) => c.id === editedId && c.storyId === story.id);
-  const touched =
-    storyWide
-      ? decisions
-      : decisions.filter((i) => i.id === editedId || (i.blockId !== null && i.blockId === editedId));
+  const wasAgreed = story.state === "agreed" || story.state === "ready" || story.state === "exported";
+  const editedIds = Array.isArray(editedId) ? editedId : [editedId];
+  // Once a story is agreed, ready or exported, any edit touches everything agreed on it (ADR-015).
+  // So does an edit to the story itself or to a criterion (e.g. Jira drift).
+  const storyWide =
+    wasAgreed ||
+    editedIds.some((id) => id === story.id || ctx.criteria.some((c) => c.id === id && c.storyId === story.id));
+  const touched = storyWide
+    ? decisions
+    : decisions.filter((i) => editedIds.includes(i.id) || (i.blockId !== null && editedIds.includes(i.blockId)));
 
   const items: Item[] = [];
   const askStanceFrom: string[] = [];
@@ -148,7 +152,6 @@ export function reopenOnEdit(story: Story, editedId: string, ctx: DomainSnapshot
     for (const p of order) if (agreed.includes(p) && !askStanceFrom.includes(p)) askStanceFrom.push(p);
   }
 
-  const wasAgreed = story.state === "agreed" || story.state === "ready" || story.state === "exported";
   return {
     story: wasAgreed || story.signedOffBy
       ? { ...story, state: wasAgreed ? "in_refinement" : story.state, signedOffBy: null, signedOffAt: null }

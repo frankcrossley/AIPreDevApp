@@ -2,12 +2,15 @@
 // blocking questions, and the reopen warning for agreed content.
 import { describe, expect, it } from "vitest";
 import { evaluateBuiltRight } from "@/domain/checks";
+import { reopenOnEdit } from "@/domain/lifecycle";
 import {
   agreedBy,
   applyOps,
   defaultRequiredStances,
   diffSection,
+  newDraftStory,
   parsePrefix,
+  reopenImpact,
   reopenWarning,
   setBlocking,
   type SectionLine,
@@ -215,5 +218,68 @@ describe("ids from the editor", () => {
     const archived = applyOps(ctx, diff(ctx, "What we think", plain), NOW);
     const undone = lines(ctx, "What we think");
     expect(diff(archived, "What we think", undone)).toEqual([{ op: "restoreItem", id: "it-d1" }]);
+  });
+});
+
+describe("reopening agreed and ready stories (ADR-015)", () => {
+  const newLineOps = (ctx: DomainSnapshot) =>
+    diff(ctx, "Edge cases", [...lines(ctx, "Edge cases"), { blockId: "blk-late", itemId: null, itemType: null, text: "Annual plans too." }]);
+
+  it("a new line on a Ready story reopens it for everyone who agreed, and its signer", () => {
+    const ctx = seeded();
+    Object.assign(story(ctx, "BILL-150"), { state: "ready", signedOffBy: "priya", signedOffAt: NOW });
+    const impact = reopenImpact(newLineOps(ctx), story(ctx, "BILL-150"), ctx);
+    expect(impact).toEqual({
+      reopen: true,
+      editedIds: ["bill-150"],
+      personIds: ["priya", "sam", "marcus"],
+      warning: "Priya, Sam and Marcus agreed this. Saving reopens it for all three.",
+    });
+    const r = reopenOnEdit(story(ctx, "BILL-150"), impact.editedIds, ctx);
+    expect(r.story).toMatchObject({ state: "in_refinement", signedOffBy: null });
+    expect(r.items.map((i) => [i.id, i.stanceRound])).toEqual([["it-d1", 2]]);
+  });
+
+  it("editing a plain line of a Ready story still asks everyone again", () => {
+    const ctx = seeded();
+    Object.assign(story(ctx, "BILL-150"), { state: "ready", signedOffBy: "priya" });
+    expect(reopenOnEdit(story(ctx, "BILL-150"), "b7", ctx).askStanceFrom).toEqual(["priya", "sam", "marcus"]);
+  });
+
+  it("an Agreed story with nobody to name still reopens, with a plain warning", () => {
+    const ctx = seeded();
+    ctx.stances = [];
+    story(ctx, "BILL-150").state = "agreed";
+    const impact = reopenImpact(newLineOps(ctx), story(ctx, "BILL-150"), ctx);
+    expect(impact).toMatchObject({ reopen: true, personIds: [], warning: "BILL-150 is Agreed. Saving reopens it." });
+  });
+
+  it("in refinement, a plain line edit doesn't reopen anything", () => {
+    const ctx = seeded();
+    const next = lines(ctx, "Edge cases").map((l) => (l.blockId === "b7" ? { ...l, text: "Twice in a month is fine." } : l));
+    expect(reopenImpact(diff(ctx, "Edge cases", next), story(ctx, "BILL-150"), ctx).reopen).toBe(false);
+  });
+
+  it("no ops, no reopen", () => {
+    const ctx = seeded();
+    story(ctx, "BILL-150").state = "ready";
+    expect(reopenImpact([], story(ctx, "BILL-150"), ctx).reopen).toBe(false);
+  });
+});
+
+describe("Turn into → Story", () => {
+  it("creates a draft story whose first line cites the line it came from", () => {
+    const ctx = seeded();
+    const r = newDraftStory({ epic: ctx.epics[0], ctx, title: "  both the plan and\n the invoice line ", actorId: "marcus", sourceBlockId: "b5", now: NOW });
+    expect(r.story).toMatchObject({ id: "bill-164", key: "BILL-164", title: "both the plan and the invoice line", state: "draft", leadId: "marcus", templateId: "tpl-story" });
+    expect(r.block).toMatchObject({ parentId: "bill-164", section: "What we heard", text: "both the plan and the invoice line" });
+    expect(r.citation).toMatchObject({ fromType: "block", fromId: r.block!.id, toType: "block", toId: "b5" });
+  });
+
+  it("refuses empty or overlong titles", () => {
+    const ctx = seeded();
+    const base = { epic: ctx.epics[0], ctx, actorId: "priya", sourceBlockId: null, now: NOW };
+    expect(() => newDraftStory({ ...base, title: "  " })).toThrow();
+    expect(() => newDraftStory({ ...base, title: "x".repeat(201) })).toThrow(/200/);
   });
 });

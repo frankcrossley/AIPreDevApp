@@ -31,7 +31,7 @@ Every bolt is done when:
 - Nothing runs `expireDrafts` on a schedule yet. The Scrum Master calls it once the right panel exists (bolt 3).
 - Seed question for the seed owner: BILL-152 is exported and signed off by Priya, but its lead is Dan and its checks now fail because the PRFAQ is a draft (ADR-015).
 
-## [ ] Bolt 2 · The single workspace and the notebook
+## [x] Bolt 2 · The single workspace and the notebook
 **Goal.** The three-column screen, with a real editor.
 **Scope.**
 - Header with the "viewing as" switcher.
@@ -41,6 +41,11 @@ Every bolt is done when:
 - Epic view placeholder.
 **Acceptance.** `01-workspace.feature` and `02-notebook.feature`.
 **Demo.** Type `? What about downgrades` and watch it become a question chip. Edit the agreed decision and see the reopen warning.
+**Done.** Workspace at `/w/[key]`, Tiptap notebook with chips, Turn into, blocking, and the reopen warning, which also covers new lines on Agreed or Ready stories. ADR-019 to ADR-024.
+**Deferred.**
+- 01 "Switching who I'm acting as": authorship of lines and items is recorded as the viewing-as person and tested. Stances, triage and read-backs use the same `currentActorId()` but have no UI until bolts 3 to 5, so that part of the scenario is proven then.
+- Header search, and hat notes under their lines (bolt 6).
+- Open questions: should notebook edits by non-leads outside a session become drafts (ADR-023)? Should deleting a line that others cite be refused, rather than removing its citations? Should a prefix be escapable, so "risk: ..." can stay plain text?
 
 ## [ ] Bolt 3 · The right panel
 **Goal.** Everything that needs you, beside the notebook.

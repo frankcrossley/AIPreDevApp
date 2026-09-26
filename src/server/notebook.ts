@@ -1,10 +1,11 @@
 // Persists notebook edits (ADR-020). The rules are in src/domain/notebook.ts; this file writes
 // the ops they produce and logs every change as an Event.
 import { randomUUID } from "node:crypto";
-import { agreedBy, diffSection, editedBlockIds, reopenWarning, setBlocking, type NotebookOp, type SectionLine } from "@/domain/notebook";
+import { isLiveItem } from "@/domain/checks";
+import { diffSection, reopenImpact, setBlocking, type NotebookOp, type SectionLine } from "@/domain/notebook";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "./prisma";
-import { reopenStoryOnEdit } from "./lifecycle";
+import { reopenWrites } from "./lifecycle";
 import { loadSnapshot } from "./snapshot";
 
 export type SaveResult =
@@ -68,32 +69,36 @@ export async function saveSection(
   const ops = diffSection({ ctx, storyId: story.id, section: input.section, lines: input.lines, actorId: input.actorId, now, newId: () => shortId("x") });
   if (!ops.length) return { status: "saved", reopened: false };
 
-  const edited = editedBlockIds(ops, ctx);
-  const personIds = agreedBy(edited, story.id, ctx);
-  if (personIds.length && !input.confirmReopen) {
-    const names = personIds.map((id) => ctx.people.find((p) => p.id === id)?.name ?? id);
-    return { status: "needs_confirmation", warning: reopenWarning(names), personIds };
+  const impact = reopenImpact(ops, story, ctx);
+  if (impact.reopen && !input.confirmReopen) {
+    return { status: "needs_confirmation", warning: impact.warning, personIds: impact.personIds };
   }
-  if (personIds.length) {
-    for (const blockId of edited) await reopenStoryOnEdit(db, story.id, blockId, input.actorId);
-  }
-  await db.$transaction(opWrites(db, ops, story.id, input.actorId, now));
-  return { status: "saved", reopened: personIds.length > 0 };
+  // The reopen and the edit land together or not at all.
+  const reopen = impact.reopen ? reopenWrites(db, story, impact.editedIds, ctx, input.actorId).writes : [];
+  await db.$transaction([...reopen, ...opWrites(db, ops, story.id, input.actorId, now)]);
+  return { status: "saved", reopened: impact.reopen };
 }
 
+/**
+ * Marks a question blocking or not. On an agreed, ready or exported story that changes agreed
+ * content, so the story reopens in the same transaction (ADR-015).
+ */
 export async function setItemBlocking(db: Db, itemId: string, blocking: boolean, actorId: string) {
   const ctx = await loadSnapshot(db);
   const item = ctx.items.find((i) => i.id === itemId);
-  if (!item) throw new Error(`No item ${itemId}`);
+  if (!item || !isLiveItem(item)) throw new Error(`No live item ${itemId}`);
   const updated = setBlocking(item, blocking);
+  const story = item.parentType === "story" ? ctx.stories.find((s) => s.id === item.parentId) : undefined;
+  const reopen = story ? reopenWrites(db, story, itemId, ctx, actorId).writes : [];
   await db.$transaction([
+    ...reopen,
     db.item.update({ where: { id: itemId }, data: { blocking: updated.blocking } }),
     db.event.create({
       data: {
         id: randomUUID(),
         type: blocking ? "item.marked_blocking" : "item.unmarked_blocking",
         actorId,
-        subjectType: "story",
+        subjectType: item.parentType,
         subjectId: item.parentId,
         payloadJson: JSON.stringify({ itemId }),
       },

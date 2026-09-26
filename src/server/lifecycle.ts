@@ -1,9 +1,10 @@
 // The only code that persists a story's state or sign-off (ADR-007).
 // Every write goes through a guarded domain function; nothing here decides a state itself.
 import { randomUUID } from "node:crypto";
-import { reopenOnEdit, signOff, transition, type TransitionOptions, type TransitionResult } from "@/domain/lifecycle";
-import { nextStoryKey } from "@/domain/story-keys";
-import type { StoryState } from "@/domain/types";
+import { reopenOnEdit, signOff, transition, type ReopenResult, type TransitionOptions, type TransitionResult } from "@/domain/lifecycle";
+import { newDraftStory } from "@/domain/notebook";
+import type { DomainSnapshot, Story, StoryState } from "@/domain/types";
+import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "./prisma";
 import { loadSnapshot } from "./snapshot";
 
@@ -38,48 +39,79 @@ export async function signOffStory(db: Db, storyId: string, actorId: string, now
   return persist(db, storyId, "story.signed_off", actorId, signOff(story, actorId, ctx, now), { from: story.state });
 }
 
+/**
+ * The writes that reopen a story after an edit (bolt 1's reopenOnEdit), for callers to put in the
+ * same transaction as the edit itself. Empty when nothing needs reopening.
+ */
+export function reopenWrites(
+  db: Db,
+  story: Story,
+  editedIds: string | string[],
+  ctx: DomainSnapshot,
+  actorId: string | null,
+): { writes: Prisma.PrismaPromise<unknown>[]; result: ReopenResult } {
+  const r = reopenOnEdit(story, editedIds, ctx);
+  if (r.story === story && !r.items.length) return { writes: [], result: r };
+  return {
+    result: r,
+    writes: [
+      ...r.items.map((i) => db.item.update({ where: { id: i.id }, data: { stanceRound: i.stanceRound } })),
+      db.story.update({
+        where: { id: story.id },
+        data: { state: r.story.state, signedOffBy: r.story.signedOffBy, signedOffAt: r.story.signedOffAt },
+      }),
+      db.event.create({
+        data: {
+          id: randomUUID(),
+          type: "story.reopened",
+          actorId,
+          subjectType: "story",
+          subjectId: story.id,
+          payloadJson: JSON.stringify({ editedIds, from: story.state, askStanceFrom: r.askStanceFrom }),
+        },
+      }),
+    ],
+  };
+}
+
 /** Call after any edit to a story's content. Reopens agreed content and starts new stance rounds. */
 export async function reopenStoryOnEdit(db: Db, storyId: string, editedId: string, actorId: string | null) {
   const { ctx, story } = await load(db, storyId);
-  const r = reopenOnEdit(story, editedId, ctx);
-  if (r.story === story && !r.items.length) return r;
-  await db.$transaction([
-    ...r.items.map((i) => db.item.update({ where: { id: i.id }, data: { stanceRound: i.stanceRound } })),
-    db.story.update({
-      where: { id: storyId },
-      data: { state: r.story.state, signedOffBy: r.story.signedOffBy, signedOffAt: r.story.signedOffAt },
-    }),
-    db.event.create({
-      data: {
-        id: randomUUID(),
-        type: "story.reopened",
-        actorId,
-        subjectType: "story",
-        subjectId: storyId,
-        payloadJson: JSON.stringify({ editedId, from: story.state, askStanceFrom: r.askStanceFrom }),
-      },
-    }),
-  ]);
-  return r;
+  const { writes, result } = reopenWrites(db, story, editedId, ctx, actorId);
+  if (writes.length) await db.$transaction(writes);
+  return result;
 }
 
-/** "Turn into → Story": a new draft story in the same epic, led by whoever made it. */
-export async function createDraftStory(db: Db, input: { epicId: string; title: string; actorId: string }) {
+/** "Turn into → Story": a new draft story, built by the domain's newDraftStory. */
+export async function createDraftStory(
+  db: Db,
+  input: { epicId: string; title: string; actorId: string; sourceBlockId?: string | null; now?: Date },
+) {
   const ctx = await loadSnapshot(db);
   const epic = ctx.epics.find((e) => e.id === input.epicId);
   if (!epic) throw new Error(`No epic ${input.epicId}`);
-  const title = input.title.trim();
-  if (!title) throw new Error("A story needs a title");
-  const template = ctx.templates.find((t) => t.name === "story") ?? ctx.templates[0];
-  const key = nextStoryKey(epic, ctx);
-  const id = key.toLowerCase();
+  const { story, block, citation } = newDraftStory({
+    epic,
+    ctx,
+    title: input.title,
+    actorId: input.actorId,
+    sourceBlockId: input.sourceBlockId ?? null,
+    now: input.now ?? new Date(),
+  });
   await db.$transaction([
-    db.story.create({
-      data: { id, key, epicId: epic.id, title, leadId: input.actorId, templateId: template.id, state: "draft" },
-    }),
+    db.story.create({ data: story }),
+    ...(block ? [db.block.create({ data: block })] : []),
+    ...(citation ? [db.citation.create({ data: citation })] : []),
     db.event.create({
-      data: { id: randomUUID(), type: "story.created", actorId: input.actorId, subjectType: "story", subjectId: id, payloadJson: JSON.stringify({ key, title }) },
+      data: {
+        id: randomUUID(),
+        type: "story.created",
+        actorId: input.actorId,
+        subjectType: "story",
+        subjectId: story.id,
+        payloadJson: JSON.stringify({ key: story.key, title: story.title, fromBlockId: input.sourceBlockId ?? null }),
+      },
     }),
   ]);
-  return { id, key };
+  return { id: story.id, key: story.key };
 }

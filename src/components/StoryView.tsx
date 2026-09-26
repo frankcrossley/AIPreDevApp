@@ -1,10 +1,11 @@
 // Story view (V6Story): the notebook in the centre, "For this item" on the right.
 import { evaluateBuiltRight, evaluateRightThing } from "@/domain/checks";
-import { STATE_LABELS } from "@/domain/backlog";
+import { STATE_LABELS, meterOf } from "@/domain/backlog";
 import { notebookView } from "@/domain/notebook-view";
 import { panelSections } from "@/domain/panel";
 import type { CheckResult, DomainSnapshot, Story } from "@/domain/types";
-import { anchorFor, storyEvents } from "@/server/workspace";
+import { anchorFor } from "@/domain/anchors";
+import { storyEvents } from "@/server/workspace";
 import { Meters, type MeterLine } from "./Meters";
 import { RightPanel } from "./RightPanel";
 import { SectionEditor } from "./SectionEditor";
@@ -18,6 +19,8 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
   const epic = ctx.epics.find((e) => e.id === story.epicId)!;
   const toLines = (results: CheckResult[]): MeterLine[] =>
     results.map((r) => ({ key: r.key, label: r.label, tier: r.tier, passed: r.passed, reason: r.reason, anchor: anchorFor(r.fixTarget, ctx) }));
+  const rightThing = evaluateRightThing(story, ctx);
+  const builtRight = evaluateBuiltRight(story, ctx);
 
   const sections = template?.sections ?? [];
   const view = notebookView(story, ctx, sections.filter((x) => x !== CRITERIA_SECTION));
@@ -47,7 +50,10 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
             <span className="text-alert">Serves no promise in the {epic.key} PRFAQ</span>
           )}
         </p>
-        <Meters rightThing={toLines(evaluateRightThing(story, ctx))} builtRight={toLines(evaluateBuiltRight(story, ctx))} />
+        <Meters
+          rightThing={{ meter: meterOf(rightThing), lines: toLines(rightThing) }}
+          builtRight={{ meter: meterOf(builtRight), lines: toLines(builtRight) }}
+        />
 
         <div className="mt-6 flex gap-1 font-mono text-xs uppercase" role="tablist" aria-label="Notebook view">
           <span role="tab" aria-selected="true" className="rounded bg-ink px-2 py-1 text-paper">
@@ -68,7 +74,7 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
                     <li
                       key={c.id}
                       id={`criterion-${c.id}`}
-                      className={`rounded border px-3 py-2 ${c.origin === "hat" && !c.confirmedBy ? "border-dashed border-muted" : "border-hairline"}`}
+                      className={`rounded border px-3 py-2 ${view.unconfirmedCriteria.includes(c.id) ? "border-dashed border-muted" : "border-hairline"}`}
                     >
                       Given {c.given}, when {c.when}, then {c.then}
                     </li>

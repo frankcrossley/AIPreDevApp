@@ -2,7 +2,9 @@
 // diffSection works out what changed, and the server applies the ops.
 
 import { isLiveItem, latestStances } from "./checks";
-import type { Block, DomainSnapshot, Item, ItemType, Stance, Story } from "./types";
+import { STATE_LABELS } from "./backlog";
+import { nextStoryKey } from "./story-keys";
+import type { Block, Citation, DomainSnapshot, Epic, Item, ItemType, Stance, Story } from "./types";
 
 export type ChipType = "decision" | "question" | "assumption" | "risk";
 
@@ -235,4 +237,94 @@ export function reopenWarning(names: string[]): string {
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const who = names.length === 1 ? "them" : (COUNT_WORDS[names.length] ?? `all ${names.length}`);
   return `${list} agreed this. Saving reopens it for ${who}.`;
+}
+
+const AGREED_STATES = new Set(["agreed", "ready", "exported"]);
+
+export interface ReopenImpact {
+  /** True when saving these ops must reopen the story (rule 5, ADR-015). */
+  reopen: boolean;
+  /** What changed, for reopenOnEdit. */
+  editedIds: string[];
+  personIds: string[];
+  warning: string;
+}
+
+/**
+ * Whether a set of notebook ops edits agreed content, who agreed it, and the warning to show.
+ * Once a story is agreed, ready or exported, any change at all reopens it, including new lines.
+ */
+export function reopenImpact(ops: NotebookOp[], story: Story, ctx: DomainSnapshot): ReopenImpact {
+  const name = (id: string) => ctx.people.find((p) => p.id === id)?.name ?? id;
+  if (AGREED_STATES.has(story.state)) {
+    const personIds = ops.length ? agreedBy([], story.id, ctx) : [];
+    return {
+      reopen: ops.length > 0,
+      editedIds: [story.id],
+      personIds,
+      warning: !ops.length
+        ? ""
+        : personIds.length
+          ? reopenWarning(personIds.map(name))
+          : `${story.key} is ${STATE_LABELS[story.state]}. Saving reopens it.`,
+    };
+  }
+  const editedIds = editedBlockIds(ops, ctx);
+  const personIds = agreedBy(editedIds, story.id, ctx);
+  return { reopen: personIds.length > 0, editedIds, personIds, warning: reopenWarning(personIds.map(name)) };
+}
+
+/**
+ * "Turn into → Story": a draft story in the same epic, led by whoever made it, with the selected
+ * text as its title. Its first line quotes the selection and cites the line it came from.
+ */
+export function newDraftStory(input: {
+  epic: Epic;
+  ctx: DomainSnapshot;
+  title: string;
+  actorId: string;
+  sourceBlockId: string | null;
+  now: Date;
+}): { story: Story; block: Block | null; citation: Citation | null } {
+  const title = input.title.trim().replace(/\s+/g, " ");
+  if (!title) throw new Error("A story needs a title");
+  if (title.length > 200) throw new Error("A story title can be at most 200 characters");
+  const template = input.ctx.templates.find((t) => t.name === "story") ?? input.ctx.templates[0];
+  const key = nextStoryKey(input.epic, input.ctx);
+  const id = key.toLowerCase();
+  const story: Story = {
+    id,
+    key,
+    epicId: input.epic.id,
+    title,
+    leadId: input.actorId,
+    templateId: template.id,
+    state: "draft",
+    promiseId: null,
+    estimate: null,
+    hasUiChange: false,
+    mockUri: null,
+    jiraKey: null,
+    sprint: null,
+    signedOffBy: null,
+    signedOffAt: null,
+  };
+  const source = input.sourceBlockId ? input.ctx.blocks.find((b) => b.id === input.sourceBlockId) : undefined;
+  if (!source) return { story, block: null, citation: null };
+  const block: Block = {
+    id: `${id}-b1`,
+    parentType: "story",
+    parentId: id,
+    section: template.sections[0],
+    order: 1,
+    text: title,
+    authorId: input.actorId,
+    createdAt: input.now,
+    updatedAt: input.now,
+  };
+  return {
+    story,
+    block,
+    citation: { id: `cit-block-${block.id}-${source.id}`, fromType: "block", fromId: block.id, toType: "block", toId: source.id },
+  };
 }
