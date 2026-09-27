@@ -9,7 +9,7 @@ import type { PrfaqView } from "@/domain/prfaq";
 import type { ActionResult } from "@/server/triage";
 import { Card } from "./RightPanel";
 
-const ASSESSMENT: Record<string, string> = { matches: "Matches", diverges: "Diverges", too_close: "Too close to the page", pending: "Not assessed" };
+const ASSESSMENT: Record<string, string> = { matches: "Matches", diverges: "Diverges", too_close: "Too close to the page", pending: "Read it again" };
 
 function useAction() {
   const router = useRouter();
@@ -70,12 +70,14 @@ function ReadBackPrompt({ epicId, existing }: { epicId: string; existing: string
 function ReadBackCard({ r, epicId, session }: { r: PrfaqView["readBacks"][number]; epicId: string; session: Session | null }) {
   const { pending, message, run } = useAction();
   const onAgenda = !!(session && r.talkItThrough && session.agenda.includes(r.talkItThrough));
-  const tone = r.assessment === "matches" ? "border-agreed" : r.assessment ? "border-alert" : "border-dashed border-line";
+  // A stand-in "matches" isn't a real assessment yet, so it's drawn dashed (ADR-035).
+  const tone = r.assessment === "matches" ? (r.standIn ? "border-dashed border-agreed" : "border-agreed") : r.assessment === "pending" ? "border-dashed border-line" : r.assessment ? "border-alert" : "border-dashed border-line";
   return (
     <li data-testid={`readback-${r.personId}`} className={`rounded border px-3 py-2 ${tone}`}>
       <span className="font-medium">{r.name}</span>
       <span className={`ml-2 font-mono text-[11px] uppercase ${r.assessment === "matches" ? "text-agreed" : "text-alert"}`}>
         {r.assessment ? ASSESSMENT[r.assessment] : "Not written yet"}
+        {r.standIn && " · stand-in"}
       </span>
       {r.text && <span className="block">{r.text}</span>}
       {r.note && <span className="block text-xs text-muted">{r.note}</span>}

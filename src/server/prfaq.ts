@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import {
   afterPrfaqEdit,
+  canActOnUnpromised,
   canAgreePrfaq,
   canEditPrfaq,
   editPrfaqFields,
@@ -85,9 +86,10 @@ export async function savePromiseAction(db: Db, input: { epicId: string; actorId
   } catch (e) {
     return refusedFrom(e);
   }
+  const withPromise = { ...ctx, promises: [...ctx.promises.filter((p) => p.id !== promise.id), promise] };
   await db.$transaction([
     db.prfaqPromise.upsert({ where: { id: promise.id }, create: promise, update: { text: promise.text } }),
-    ...reopenWrites(db, prfaq, ctx, input.actorId, epic),
+    ...reopenWrites(db, prfaq, withPromise, input.actorId, epic),
     event(db, "prfaq.promise_saved", input.actorId, epic.id, { promiseId: promise.id }),
   ]);
   return { status: "done" };
@@ -107,9 +109,10 @@ export async function saveFaqAction(
   }
   const { storyIds, ...rest } = faq;
   const data = { ...rest, storyIdsJson: JSON.stringify(storyIds) };
+  const withFaq = { ...ctx, faqEntries: [...ctx.faqEntries.filter((f) => f.id !== faq.id), faq] };
   await db.$transaction([
     db.faqEntry.upsert({ where: { id: faq.id }, create: data, update: data }),
-    ...reopenWrites(db, prfaq, ctx, input.actorId, epic),
+    ...reopenWrites(db, prfaq, withFaq, input.actorId, epic),
     event(db, "prfaq.faq_saved", input.actorId, epic.id, { faqId: faq.id }),
   ]);
   return { status: "done" };
@@ -142,12 +145,19 @@ export async function agreePrfaqAction(db: Db, input: { epicId: string; actorId:
 
 // ---------- stories that serve no promise ----------
 
+async function guardUnpromised(db: Db, input: { epicId: string; storyId: string; actorId: string }) {
+  const { ctx, epic } = await loadEpic(db, input.epicId);
+  const permission = canActOnUnpromised(ctx.stories.find((s) => s.id === input.storyId), epic, ctx, input.actorId);
+  return { ctx, epic, refused: permission.ok ? null : permission.reason };
+}
+
 export async function addPromiseForStoryAction(db: Db, input: { epicId: string; storyId: string; actorId: string; text: string }): Promise<ActionResult> {
-  const { epic, refused } = await asOwner(db, input.epicId, input.actorId);
+  const { epic, refused } = await guardUnpromised(db, input);
   if (refused) return { status: "refused", reason: refused };
   try {
     const { ctx, prfaq, promise, writes } = await linkNewPromiseWrite(db, { storyId: input.storyId, text: input.text, actorId: input.actorId });
-    await db.$transaction([...writes, ...reopenWrites(db, prfaq, ctx, input.actorId, epic), event(db, "prfaq.promise_saved", input.actorId, epic.id, { promiseId: promise.id, storyId: input.storyId })]);
+    const withPromise = { ...ctx, promises: [...ctx.promises, promise] };
+    await db.$transaction([...writes, ...reopenWrites(db, prfaq, withPromise, input.actorId, epic), event(db, "prfaq.promise_saved", input.actorId, epic.id, { promiseId: promise.id, storyId: input.storyId })]);
   } catch (e) {
     return refusedFrom(e);
   }
@@ -155,18 +165,18 @@ export async function addPromiseForStoryAction(db: Db, input: { epicId: string; 
 }
 
 export async function moveStoryToOwnEpicAction(db: Db, input: { epicId: string; storyId: string; actorId: string }): Promise<ActionResult> {
-  const { refused } = await asOwner(db, input.epicId, input.actorId);
+  const { refused } = await guardUnpromised(db, input);
   if (refused) return { status: "refused", reason: refused };
   try {
     const epic = await moveToOwnEpicWrite(db, input.storyId, input.actorId);
-    return { status: "done", message: `Moved to its own epic, ${epic.key}.` };
+    return { status: "done", message: `Moved to its own epic, ${epic.key}, with a draft PRFAQ to write.` };
   } catch (e) {
     return refusedFrom(e);
   }
 }
 
 export async function dropStoryAction(db: Db, input: { epicId: string; storyId: string; actorId: string }): Promise<ActionResult> {
-  const { refused } = await asOwner(db, input.epicId, input.actorId);
+  const { refused } = await guardUnpromised(db, input);
   if (refused) return { status: "refused", reason: refused };
   try {
     await dropStoryWrite(db, input.storyId, input.actorId);

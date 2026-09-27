@@ -158,7 +158,7 @@ function FaqEntry({ epicId, faq, stories, canEdit }: { epicId: string; faq: Faq 
               {faq.stories.map((s) => (
                 <Link key={s.id} href={`/w/${s.key}`} data-testid={`faq-link-${s.key}`} className="ml-2 font-mono text-xs">
                   → {s.key}
-                  {s.open && <span className="ml-1 text-muted">open</span>}
+                  {s.gone ? <span className="ml-1 text-alert">{s.gone}</span> : s.open && <span className="ml-1 text-muted">open</span>}
                 </Link>
               ))}
               {faq.evidence && <span className="block text-xs">Evidence: {faq.evidence}</span>}

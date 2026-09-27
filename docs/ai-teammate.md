@@ -91,7 +91,7 @@ Anything that fails rule 3 is stored as `origin: hat, hat: "shaper"`: shown dash
 
 **Output:** `{ assessment: "matches" | "diverges", note, promiseRefs[] }`.
 
-`too_close` is decided by code, not the model: flag it when normalised text similarity to any PRFAQ sentence is above 0.85. People pasting the headline isn't alignment.
+`too_close` is decided by code, not the model: flag it when normalised text similarity (character-bigram Dice) to any PRFAQ sentence, promise, or FAQ question or answer is above 0.85. Fields are split into sentences on `.`, `!` and `?`. People pasting the headline isn't alignment. Until this call exists, a stand-in rule marks other read-backs as matching and says so (ADR-035); the model replaces it, the code rule stays.
 
 ### 4. `extractCandidates`: transcript into drafts
 

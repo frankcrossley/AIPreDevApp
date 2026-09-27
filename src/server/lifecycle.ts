@@ -142,8 +142,9 @@ export async function linkNewPromiseWrite(db: Db, input: { storyId: string; text
 
 export async function moveToOwnEpicWrite(db: Db, storyId: string, actorId: string) {
   const { ctx, story } = await load(db, storyId);
-  const { epic, story: moved } = moveToOwnEpic(story, ctx, actorId);
+  const { epic, prfaq, story: moved } = moveToOwnEpic(story, ctx, actorId);
   await db.$transaction([
+    ...(prfaq ? [db.prfaq.create({ data: prfaq })] : []),
     db.epic.create({ data: { id: epic.id, key: epic.key, title: epic.title, ownerId: epic.ownerId, deciderId: epic.deciderId, templateId: epic.templateId, memberIdsJson: JSON.stringify(epic.memberIds) } }),
     db.story.update({ where: { id: story.id }, data: { epicId: moved.epicId, promiseId: null } }),
     db.event.create({ data: { id: randomUUID(), type: "story.moved_to_epic", actorId, subjectType: "epic", subjectId: story.epicId, payloadJson: JSON.stringify({ storyId: story.id, to: epic.key }) } }),

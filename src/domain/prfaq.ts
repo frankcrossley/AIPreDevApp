@@ -101,13 +101,22 @@ export function canAgreePrfaq(personId: string, epic: Epic, ctx: DomainSnapshot)
  * Any change to the PRFAQ's content: an agreed PRFAQ goes back to draft (it must be agreed again,
  * like edited agreed content on a story, ADR-034), and too-close read-backs are worked out again.
  */
+export const RECHECK_NOTE = "The PRFAQ changed after it was agreed. Read it again: keep your line or rewrite it.";
+
+/**
+ * After any content edit (ctx must already contain the edit): too-close read-backs are worked out
+ * again against the new text. If the PRFAQ was agreed, it goes back to draft and every read-back
+ * that matched is asked again (rule 5): agreement mustn't rest on text that no longer exists.
+ */
 export function afterPrfaqEdit(prfaq: Prfaq, ctx: DomainSnapshot): { prfaq: Prfaq; readBacks: ReadBack[] } {
+  const wasAgreed = ctx.prfaqs.find((p) => p.id === prfaq.id)?.state === "agreed" || prfaq.state === "agreed";
   const readBacks = ctx.readBacks
     .filter((r) => r.epicId === prfaq.epicId)
     .flatMap((r) => {
       const close = tooClose(r.text, prfaq, ctx).tooClose;
       if (close && r.assessment !== "too_close") return [{ ...r, assessment: "too_close" as const, note: TOO_CLOSE_NOTE }];
       if (!close && r.assessment === "too_close") return [{ ...r, ...assessReadBackStub(r.text, prfaq, ctx) }];
+      if (wasAgreed && r.assessment === "matches") return [{ ...r, assessment: "pending" as const, note: RECHECK_NOTE }];
       return [];
     });
   return { prfaq: { ...prfaq, state: "draft" }, readBacks };
@@ -148,9 +157,11 @@ export function upsertFaq(
 ): FaqEntry {
   const question = input.question.trim();
   if (!question) throw new Error("An FAQ entry needs a question");
-  const epicStories = new Set(ctx.stories.filter((s) => s.epicId === prfaq.epicId).map((s) => s.id));
-  for (const id of input.storyIds) if (!epicStories.has(id)) throw new Error(`${id} isn't a story on this epic`);
+  const epicStories = new Set(ctx.stories.filter((s) => s.epicId === prfaq.epicId && !s.archivedAt).map((s) => s.id));
   const existing = ctx.faqEntries.find((f) => f.id === input.id);
+  // Links the entry already had to stories since moved or dropped are let go; new links must be on the epic.
+  for (const id of input.storyIds) if (!epicStories.has(id) && !existing?.storyIds.includes(id)) throw new Error(`${id} isn't a story on this epic`);
+  input = { ...input, storyIds: input.storyIds.filter((id) => epicStories.has(id)) };
   if (existing && existing.prfaqId !== prfaq.id) throw new Error("That FAQ belongs to another PRFAQ");
   return {
     id: input.id,
@@ -187,7 +198,9 @@ export function prfaqView(epic: Epic, ctx: DomainSnapshot, actorId: string) {
   const story = (id: string) => ctx.stories.find((s) => s.id === id);
   const storyRef = (id: string) => {
     const s = story(id);
-    return s ? { id: s.id, key: s.key, title: s.title, open: s.state !== "ready" && s.state !== "exported" } : null;
+    return s
+      ? { id: s.id, key: s.key, title: s.title, open: s.state !== "ready" && s.state !== "exported", gone: s.archivedAt ? "dropped" : s.epicId !== epic.id ? "moved" : null }
+      : null;
   };
   const quote = ctx.excerpts.find((e) => e.id === prfaq?.customerQuoteExcerptId);
   const source = (sourceId: string) => ctx.sources.find((s) => s.id === sourceId);
@@ -196,6 +209,10 @@ export function prfaqView(epic: Epic, ctx: DomainSnapshot, actorId: string) {
   const mine = reads.find((r) => r.personId === actorId);
   const agree = canAgreePrfaq(actorId, epic, ctx);
   const excerptText = (id: string | null) => ctx.excerpts.find((e) => e.id === id);
+  const action = (s: Story) => {
+    const p = canActOnUnpromised(s, epic, ctx, actorId);
+    return p.ok ? null : p.reason;
+  };
 
   return {
     prfaq,
@@ -225,6 +242,8 @@ export function prfaqView(epic: Epic, ctx: DomainSnapshot, actorId: string) {
         text: r?.text ?? null,
         assessment: r?.assessment ?? null,
         note: r?.note ?? null,
+        /** A stand-in "matches" isn't a real assessment yet: drawn dashed (ADR-035). */
+        standIn: r?.note === STUB_NOTE,
         /** Diverging or too-close read-backs can go to the next session. */
         talkItThrough: r && (r.assessment === "diverges" || r.assessment === "too_close") ? r.id : null,
       };
@@ -234,9 +253,9 @@ export function prfaqView(epic: Epic, ctx: DomainSnapshot, actorId: string) {
       id: s.id,
       key: s.key,
       title: s.title,
-      addReason: edit.ok ? null : edit.reason,
-      moveReason: edit.ok ? null : edit.reason,
-      dropReason: !edit.ok ? edit.reason : s.state === "draft" || s.state === "triaged" ? null : "Only a story that isn't in refinement yet can be dropped",
+      addReason: action(s),
+      moveReason: action(s),
+      dropReason: action(s) ?? (s.state === "draft" || s.state === "triaged" ? null : "Only a story that isn't in refinement yet can be dropped"),
     })),
     evidenceAgainst: faqs
       .filter((f) => f.audience === "internal" && f.evidenceExcerptId)
@@ -248,6 +267,19 @@ export function prfaqView(epic: Epic, ctx: DomainSnapshot, actorId: string) {
 export type PrfaqView = ReturnType<typeof prfaqView>;
 
 // ---------- stories that serve no promise (ADR-036) ----------
+
+/**
+ * The three ways out act only on a story on this epic that serves no promise, and not on agreed,
+ * Ready or exported stories: those are reopened by editing them first (rule 5).
+ */
+export function canActOnUnpromised(story: Story | undefined, epic: Epic, ctx: DomainSnapshot, actorId: string): Permission {
+  const edit = canEditPrfaq(actorId, epic, ctx);
+  if (!edit.ok) return edit;
+  if (!story || story.epicId !== epic.id || story.archivedAt) return { ok: false, reason: "That story isn't on this epic" };
+  if (!storiesServingNoPromise(epic, ctx).some((s) => s.id === story.id)) return { ok: false, reason: `${story.key} already serves a promise` };
+  if (["agreed", "ready", "exported"].includes(story.state)) return { ok: false, reason: `${story.key} is ${story.state}. Reopen it by editing it first.` };
+  return { ok: true };
+}
 
 /** "Drop it": only a story that isn't in refinement yet. Archived, never deleted. */
 export function dropStory(story: Story, now: Date): Story {
@@ -261,8 +293,11 @@ export function promiseForStory(story: Story, prfaq: Prfaq, text: string, id: st
   return { promise, story: { ...story, promiseId: promise.id } };
 }
 
-/** "Move to its own epic": a new epic led by whoever moved it, with the story in it. */
-export function moveToOwnEpic(story: Story, ctx: DomainSnapshot, actorId: string): { epic: Epic; story: Story } {
+/**
+ * "Move to its own epic": a new epic owned by whoever moved it, with the story in it. The epic's
+ * template needs a PRFAQ, so it starts with an empty draft one for the new owner to write (ADR-036).
+ */
+export function moveToOwnEpic(story: Story, ctx: DomainSnapshot, actorId: string): { epic: Epic; prfaq: Prfaq | null; story: Story } {
   const from = ctx.epics.find((e) => e.id === story.epicId);
   if (!from) throw new Error("The story has no epic");
   const key = nextStoryKey(from, ctx);
@@ -276,5 +311,8 @@ export function moveToOwnEpic(story: Story, ctx: DomainSnapshot, actorId: string
     templateId: template.id,
     memberIds: [...new Set([actorId, story.leadId])],
   };
-  return { epic, story: { ...story, epicId: epic.id, promiseId: null } };
+  const prfaq: Prfaq | null = template.requiresPrfaq
+    ? { id: `prfaq-${epic.id}`, epicId: epic.id, headline: story.title, subhead: "", problem: "", whatChanges: "", customerQuoteExcerptId: null, successMeasure: null, state: "draft" }
+    : null;
+  return { epic, prfaq, story: { ...story, epicId: epic.id, promiseId: null } };
 }

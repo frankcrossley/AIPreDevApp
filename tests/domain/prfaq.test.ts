@@ -25,7 +25,7 @@ describe("customer FAQ links to stories", () => {
     const ctx = seeded();
     const v = prfaqView(epic(ctx), ctx, "priya");
     const faq = (id: string) => v.faqs.find((f) => f.id === id)!;
-    expect(faq("faq-1").stories).toEqual([{ id: "bill-150", key: "BILL-150", title: "Plan changes mid-cycle", open: true }]);
+    expect(faq("faq-1").stories).toEqual([{ id: "bill-150", key: "BILL-150", title: "Plan changes mid-cycle", open: true, gone: null }]);
     expect(faq("faq-2").stories.map((s) => [s.key, s.open])).toEqual([["BILL-151", true]]);
   });
 });
@@ -125,13 +125,25 @@ describe("the PRFAQ can't be agreed early", () => {
 });
 
 describe("editing an agreed PRFAQ", () => {
-  it("goes back to draft, and too-close read-backs are worked out again", () => {
+  it("goes back to draft; too-close read-backs are worked out again, and everyone who matched reads it again", () => {
     const ctx = seeded();
     prfaq(ctx).state = "agreed";
     const edited = editPrfaqFields(prfaq(ctx), { headline: "Pay per use, fair on plan changes, no shocks for big accounts." });
     const r = afterPrfaqEdit(edited, { ...ctx, prfaqs: [edited] });
     expect(r.prfaq.state).toBe("draft");
-    expect(r.readBacks.map((x) => [x.personId, x.assessment])).toEqual([["priya", "too_close"]]);
+    expect(r.readBacks.map((x) => [x.personId, x.assessment])).toEqual([
+      ["priya", "too_close"],
+      ["sam", "pending"],
+      ["marcus", "pending"],
+      ["mei", "pending"],
+    ]);
+    expect(r.readBacks[1].note).toMatch(/changed after it was agreed/);
+  });
+
+  it("before agreement, an edit only reworks too-close read-backs", () => {
+    const ctx = seeded();
+    const edited = editPrfaqFields(prfaq(ctx), { subhead: "Pay for what you use." });
+    expect(afterPrfaqEdit(edited, { ...ctx, prfaqs: [edited] }).readBacks).toEqual([]);
   });
 
   it("refuses to empty the headline", () => {
@@ -143,5 +155,43 @@ describe("editing an agreed PRFAQ", () => {
     const ctx = seeded();
     expect(upsertFaq(prfaq(ctx), { id: "f9", audience: "customer", question: "Q?", answer: null, storyIds: [], blocking: true }, ctx).blocking).toBe(false);
     expect(() => upsertFaq(prfaq(ctx), { id: "f9", audience: "customer", question: "Q?", answer: null, storyIds: ["nope"], blocking: false }, ctx)).toThrow();
+  });
+});
+
+describe("the ways out, guarded", () => {
+  it("only for a story on this epic that serves no promise, and not once it's agreed", async () => {
+    const { canActOnUnpromised } = await import("@/domain/prfaq");
+    const ctx = seeded();
+    expect(canActOnUnpromised(story(ctx, "BILL-163"), epic(ctx), ctx, "priya")).toEqual({ ok: true });
+    expect(canActOnUnpromised(story(ctx, "BILL-150"), epic(ctx), ctx, "priya")).toEqual({ ok: false, reason: "BILL-150 already serves a promise" });
+    expect(canActOnUnpromised(story(ctx, "BILL-163"), epic(ctx), ctx, "sam")).toEqual({ ok: false, reason: "Priya owns the PRFAQ" });
+    ctx.epics.push({ ...epic(ctx), id: "e2", key: "OPS-1" });
+    expect(canActOnUnpromised(story(ctx, "BILL-163"), ctx.epics[1], ctx, "priya")).toEqual({ ok: false, reason: "That story isn't on this epic" });
+    story(ctx, "BILL-163").state = "ready";
+    expect(canActOnUnpromised(story(ctx, "BILL-163"), epic(ctx), ctx, "priya")).toMatchObject({ ok: false, reason: expect.stringMatching(/Reopen it/) });
+  });
+
+  it("a moved story's new epic starts with a draft PRFAQ", async () => {
+    const { moveToOwnEpic } = await import("@/domain/prfaq");
+    const ctx = seeded();
+    const r = moveToOwnEpic(story(ctx, "BILL-163"), ctx, "priya");
+    expect(r.prfaq).toMatchObject({ epicId: "bill-164", headline: "Invoices grouped by project", state: "draft" });
+  });
+
+  it("a stand-in match is marked as one", () => {
+    const ctx = seeded();
+    const rb = writeReadBack({ ctx, epic: epic(ctx), personId: "security", text: "Usage pricing that stores no new personal data.", now: NOW });
+    ctx.readBacks.push(rb);
+    const v = prfaqView(epic(ctx), ctx, "priya");
+    expect(v.readBacks.find((r) => r.personId === "security")!.standIn).toBe(true);
+    expect(v.readBacks.find((r) => r.personId === "priya")!.standIn).toBe(false);
+  });
+
+  it("drafts on a dropped story leave the agenda", async () => {
+    const { buildAgenda } = await import("@/domain/scrum-master");
+    const ctx = seeded();
+    story(ctx, "BILL-160").archivedAt = NOW;
+    const drafts = buildAgenda("sess-1", ctx, NOW).entries.find((e) => e.kind === "expiring_drafts")!;
+    expect(drafts.draftIds).not.toContain("dr4");
   });
 });

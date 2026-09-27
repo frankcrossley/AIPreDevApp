@@ -70,13 +70,37 @@ describe("stories that serve no promise", () => {
 
   it("Move to its own epic makes a new epic", async () => {
     const r = await moveStoryToOwnEpicAction(env.db, { epicId: "bill-142", storyId: "bill-163", actorId: "priya" });
-    expect(r).toEqual({ status: "done", message: "Moved to its own epic, BILL-164." });
+    expect(r).toEqual({ status: "done", message: "Moved to its own epic, BILL-164, with a draft PRFAQ to write." });
     expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-163" } })).epicId).toBe("bill-164");
+    expect(await env.db.prfaq.findUniqueOrThrow({ where: { epicId: "bill-164" } })).toMatchObject({ state: "draft", headline: "Invoices grouped by project" });
   });
 
   it("Drop it archives it, and only before refinement", async () => {
     expect(await dropStoryAction(env.db, { epicId: "bill-142", storyId: "bill-163", actorId: "priya" })).toMatchObject({ status: "done" });
     expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-163" } })).archivedAt).not.toBeNull();
     expect(await dropStoryAction(env.db, { epicId: "bill-142", storyId: "bill-150", actorId: "priya" })).toMatchObject({ status: "refused" });
+  });
+});
+
+describe("review fixes", () => {
+  it("one epic's owner can't act on another epic's story", async () => {
+    await moveStoryToOwnEpicAction(env.db, { epicId: "bill-142", storyId: "bill-163", actorId: "priya" });
+    // bill-163 is now on BILL-164, owned by Priya; acting on it through BILL-142 is refused.
+    expect(await dropStoryAction(env.db, { epicId: "bill-142", storyId: "bill-163", actorId: "priya" })).toEqual({ status: "refused", reason: "That story isn't on this epic" });
+  });
+
+  it("a read-back copying a new promise is too close straight away", async () => {
+    const { savePromiseAction } = await import("@/server/prfaq");
+    await writeReadBackAction(env.db, { epicId: "bill-142", actorId: "security", text: "Your data stays in the region you chose" });
+    await savePromiseAction(env.db, { epicId: "bill-142", actorId: "priya", id: null, text: "Your data stays in the region you chose" });
+    expect((await env.db.readBack.findUniqueOrThrow({ where: { id: "rb-bill-142-security" } })).assessment).toBe("too_close");
+  });
+
+  it("after an agreed PRFAQ is edited, it can't be agreed again until people read it again", async () => {
+    await realign();
+    await agreePrfaqAction(env.db, { epicId: "bill-142", actorId: "priya" });
+    await savePrfaqFieldsAction(env.db, { epicId: "bill-142", actorId: "priya", fields: { subhead: "Usage pricing, fair plan changes, no surprise jumps." } });
+    expect((await agreePrfaqAction(env.db, { epicId: "bill-142", actorId: "priya" })).status).toBe("refused");
+    expect((await env.db.readBack.findUniqueOrThrow({ where: { id: "rb-bill-142-sam" } })).assessment).toBe("pending");
   });
 });

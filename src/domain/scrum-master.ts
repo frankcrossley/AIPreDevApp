@@ -131,6 +131,7 @@ export function buildAgenda(sessionId: string, ctx: DomainSnapshot, now: Date): 
 
   const expiring = ctx.drafts
     .filter((d) => d.status === "pending" && d.expiresAt.getTime() > now.getTime() && d.expiresAt.getTime() <= sessionEnd)
+    .filter((d) => !ctx.stories.some((s) => s.id === d.targetId && s.archivedAt))
     .sort(
       (a, b) =>
         a.expiresAt.getTime() - b.expiresAt.getTime() ||
