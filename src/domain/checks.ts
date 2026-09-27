@@ -164,12 +164,15 @@ const EVALUATORS: Record<string, Evaluator> = {
   team_aligned: (story, ctx) => {
     const prfaq = prfaqFor(story, ctx);
     if (!prfaq) return { passedReason: "", blockers: [noPrfaqBlocker(story)] };
+    if (prfaq.state !== "agreed") {
+      return { passedReason: "", blockers: [{ reason: "The epic's PRFAQ isn't agreed yet", fixTarget: { type: "prfaq", id: prfaq.id } }] };
+    }
+    // Computed, not trusted (rule 4): the agreement must still hold, e.g. after a new read-back.
+    const epic = ctx.epics.find((e) => e.id === story.epicId);
+    const broken = epic ? evaluatePrfaqAgreement(epic, ctx).filter((r) => !r.passed).flatMap((r) => r.blockers) : [];
     return {
       passedReason: "The team agreed the PRFAQ",
-      blockers:
-        prfaq.state === "agreed"
-          ? []
-          : [{ reason: "The epic's PRFAQ isn't agreed yet", fixTarget: { type: "prfaq", id: prfaq.id } }],
+      blockers: broken.map((b) => ({ reason: `The PRFAQ was agreed, but no longer holds: ${b.reason}`, fixTarget: b.fixTarget })),
     };
   },
 

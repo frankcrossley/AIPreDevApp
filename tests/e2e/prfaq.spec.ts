@@ -69,6 +69,23 @@ test("Pasting the headline doesn't count", async ({ page }) => {
   await prompt.getByRole("button", { name: "Save read-back" }).click();
   await expect(page.getByTestId("readback-security")).toContainText("Too close to the page");
   await expect(page.getByTestId("readback-security")).toContainText("say it in your own words");
+  // The form stays open with the reason, so it can be reworded.
+  await expect(page.getByTestId("readback-prompt")).toContainText("Too close to the page, say it in your own words.");
+});
+
+test("Move a story with no promise to its own epic, or drop it", async ({ page }) => {
+  await openEpic(page);
+  await page.getByTestId("unpromised-BILL-163").getByRole("button", { name: "Move to its own epic" }).click();
+  await expect(page.getByTestId("backlog-BILL-164")).toContainText("Invoices grouped by project");
+  await expect(page.getByTestId("unpromised-BILL-163")).toHaveCount(0);
+  await page.getByTestId("backlog-BILL-164").click();
+  await expect(page.getByTestId("prfaq").getByRole("heading", { level: 1 })).toHaveText("Invoices grouped by project");
+
+  await resetDb();
+  await openEpic(page);
+  await page.getByTestId("unpromised-BILL-163").getByRole("button", { name: "Drop it" }).click();
+  await expect(page.getByTestId("backlog-BILL-163")).toHaveCount(0);
+  expect((await db.story.findUniqueOrThrow({ where: { id: "bill-163" } })).archivedAt).not.toBeNull();
 });
 
 test("Stories that serve no promise are flagged", async ({ page }) => {

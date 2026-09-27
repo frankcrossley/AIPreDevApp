@@ -43,8 +43,12 @@ export const TOO_CLOSE = 0.85;
 /** Every sentence a read-back could copy: PRFAQ fields, promises, and FAQ questions and answers. */
 export function prfaqSentences(prfaq: Prfaq, ctx: DomainSnapshot): string[] {
   const split = (t: string | null) => (t ?? "").split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
+  const fields = [prfaq.headline, prfaq.subhead, prfaq.problem, prfaq.whatChanges, prfaq.successMeasure].filter((f): f is string => !!f);
   return [
-    ...[prfaq.headline, prfaq.subhead, prfaq.problem, prfaq.whatChanges, prfaq.successMeasure].flatMap(split),
+    ...fields.flatMap(split),
+    // Whole fields, and headline with subhead, so pasting more than one sentence is caught too.
+    ...fields,
+    `${prfaq.headline} ${prfaq.subhead}`,
     ...ctx.promises.filter((p) => p.prfaqId === prfaq.id).map((p) => p.text),
     ...ctx.faqEntries.filter((f) => f.prfaqId === prfaq.id).flatMap((f) => [f.question, ...split(f.answer)]),
   ];
@@ -124,9 +128,13 @@ export function afterPrfaqEdit(prfaq: Prfaq, ctx: DomainSnapshot): { prfaq: Prfa
 
 export type PrfaqFields = Partial<Pick<Prfaq, "headline" | "subhead" | "problem" | "whatChanges" | "successMeasure">>;
 
+const EDITABLE_FIELDS = ["headline", "subhead", "problem", "whatChanges", "successMeasure"] as const;
+
 export function editPrfaqFields(prfaq: Prfaq, patch: PrfaqFields): Prfaq {
   const next = { ...prfaq };
   for (const [k, v] of Object.entries(patch) as [keyof PrfaqFields, string | null | undefined][]) {
+    // Only the text fields: the quote is chosen from excerpts, and ids and state never come from input.
+    if (!(EDITABLE_FIELDS as readonly string[]).includes(k)) throw new Error(`${k} can't be edited here`);
     if (v === undefined) continue;
     const text = (v ?? "").trim();
     if (!text && k !== "successMeasure") throw new Error("The headline, subhead, problem and what changes can't be empty");
@@ -163,16 +171,23 @@ export function upsertFaq(
   for (const id of input.storyIds) if (!epicStories.has(id) && !existing?.storyIds.includes(id)) throw new Error(`${id} isn't a story on this epic`);
   input = { ...input, storyIds: input.storyIds.filter((id) => epicStories.has(id)) };
   if (existing && existing.prfaqId !== prfaq.id) throw new Error("That FAQ belongs to another PRFAQ");
+  // An internal FAQ that carries evidence against stays internal and blocking until it's really answered.
+  const evidence = existing?.evidenceExcerptId ?? null;
+  if (evidence && (input.audience !== "internal" || !input.blocking)) {
+    throw new Error("This question answers evidence against the PRFAQ. It stays internal and blocking until it's answered.");
+  }
+  const answer = input.answer?.trim() || null;
+  if (evidence && answer && answer.replace(/[^a-z0-9]/gi, "").length < 10) throw new Error("Answer the evidence properly, not with a placeholder");
   return {
     id: input.id,
     prfaqId: prfaq.id,
     audience: input.audience,
     question,
-    answer: input.answer?.trim() || null,
+    answer,
     storyIds: [...new Set(input.storyIds)],
     // Only internal FAQs block agreement.
     blocking: input.audience === "internal" && input.blocking,
-    evidenceExcerptId: existing?.evidenceExcerptId ?? null,
+    evidenceExcerptId: evidence,
   };
 }
 

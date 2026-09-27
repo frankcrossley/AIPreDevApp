@@ -91,6 +91,9 @@ Every bolt is done when:
 **Deferred.**
 - Read-back assessment beyond too-close is a stand-in rule until the model in bolt 6.
 - Adding new FAQ entries (editing existing ones works) and deleting promises.
+- Accepting drafts that target an epic (the PRFAQ) rather than a story.
+- How the agenda treats read-backs that were resolved after being put to a session (bolt 8).
+- Limiting customer quote choices to the epic's own sources; any verbatim excerpt is allowed today.
 
 ## [ ] Bolt 6 · The AI teammate
 **Goal.** Real reshaping and challenges, with the promise enforced in code.

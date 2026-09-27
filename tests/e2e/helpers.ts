@@ -79,3 +79,15 @@ export async function openStory(page: Page, key: string) {
     await expect(s).toHaveAttribute("data-ready", "true");
   }
 }
+
+/** The PRFAQ agreed for real (bolt 5's demo, done in the database for other scenarios' setup). */
+export async function agreePrfaqInDb() {
+  await db.readBack.update({ where: { id: "rb-bill-142-dan" }, data: { assessment: "matches", note: null, text: "Monthly usage billing, with live usage visible so customers can budget." } });
+  await db.readBack.upsert({
+    where: { id: "rb-bill-142-security" },
+    create: { id: "rb-bill-142-security", epicId: "bill-142", personId: "security", text: "Usage pricing that stores no new personal data.", assessment: "matches", createdAt: new Date() },
+    update: {},
+  });
+  await db.faqEntry.update({ where: { id: "faq-4" }, data: { answer: "They keep today's fee, capped, for 18 months, then choose." } });
+  await db.prfaq.update({ where: { id: "prfaq-142" }, data: { state: "agreed" } });
+}

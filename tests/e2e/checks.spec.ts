@@ -1,6 +1,6 @@
 // 04-checks.feature, all scenarios, and the bolt 4 demo.
 import { expect, test, type Page } from "@playwright/test";
-import { db, line, openStory, resetDb } from "./helpers";
+import { agreePrfaqInDb, db, line, openStory, resetDb } from "./helpers";
 
 test.beforeEach(async () => {
   await resetDb();
@@ -13,7 +13,7 @@ const viewAs = async (page: Page, name: string) => {
 };
 
 /** Everything but what the demo does in the UI: the PRFAQ is agreed (bolt 5). */
-const agreePrfaq = () => db.prfaq.update({ where: { id: "prfaq-142" }, data: { state: "agreed" } });
+const agreePrfaq = agreePrfaqInDb;
 
 /** The rest of what "all checks pass" needs, done straight in the database. */
 async function makeEverythingPass() {

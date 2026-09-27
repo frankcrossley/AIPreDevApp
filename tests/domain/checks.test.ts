@@ -9,7 +9,7 @@ import {
   latestStances,
 } from "@/domain/checks";
 import type { CheckResult, DomainSnapshot, FixTarget } from "@/domain/types";
-import { NOW, makeBill150Pass, seeded, story } from "../fixtures";
+import { NOW, agreePrfaq, makeBill150Pass, seeded, story } from "../fixtures";
 
 const result = (results: CheckResult[], key: string) => {
   const r = results.find((x) => x.key === key);
@@ -170,9 +170,8 @@ describe("Right thing floor checks", () => {
   });
 
   it("success_measure_linked and team_aligned come from the epic's PRFAQ", () => {
-    const ctx = seeded();
+    const ctx = agreePrfaq(seeded());
     ctx.prfaqs[0].successMeasure = "  ";
-    ctx.prfaqs[0].state = "agreed";
     expect(result(right(ctx), "success_measure_linked").passed).toBe(false);
     expect(result(right(ctx), "team_aligned").passed).toBe(true);
   });

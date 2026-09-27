@@ -34,6 +34,16 @@ export function makeBill150Pass(ctx: DomainSnapshot): DomainSnapshot {
     createdAt: NOW,
   });
   ctx.hatNotes.find((h) => h.id === "hn3")!.status = "accepted";
+  return agreePrfaq(ctx);
+}
+
+/** The PRFAQ agreed for real: Dan realigned, Security read back, the flat-fee FAQ answered. */
+export function agreePrfaq(ctx: DomainSnapshot): DomainSnapshot {
+  Object.assign(ctx.readBacks.find((r) => r.personId === "dan")!, { assessment: "matches", note: null, text: "Monthly usage billing, with live usage visible so customers can budget." });
+  if (!ctx.readBacks.some((r) => r.personId === "security")) {
+    ctx.readBacks.push({ id: "rb-bill-142-security", epicId: "bill-142", personId: "security", text: "Usage pricing that stores no new personal data.", assessment: "matches", note: null, createdAt: NOW });
+  }
+  ctx.faqEntries.find((f) => f.id === "faq-4")!.answer = "They keep today's fee, capped, for 18 months, then choose.";
   ctx.prfaqs.find((p) => p.id === "prfaq-142")!.state = "agreed";
   return ctx;
 }

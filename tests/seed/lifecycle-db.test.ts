@@ -1,7 +1,7 @@
 // "There is no way to force Ready", end to end through the persistence layer.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { reopenStoryOnEdit, signOffStory, transitionStory } from "@/server/lifecycle";
-import { seededDatabase } from "../db";
+import { agreePrfaqInDb, seededDatabase } from "../db";
 import { NOW } from "../fixtures";
 
 let env: Awaited<ReturnType<typeof seededDatabase>>;
@@ -30,7 +30,7 @@ describe("persisted lifecycle", () => {
     await env.db.item.update({ where: { id: "it-q1" }, data: { status: "resolved" } });
     await env.db.stance.create({ data: { id: "st-dan", itemId: "it-d1", personId: "dan", value: "agree", round: 1, createdAt: NOW } });
     await env.db.hatNote.update({ where: { id: "hn3" }, data: { status: "accepted" } });
-    await env.db.prfaq.update({ where: { id: "prfaq-142" }, data: { state: "agreed" } });
+    await agreePrfaqInDb(env.db);
 
     expect((await signOffStory(env.db, "bill-150", "sam", NOW)).ok).toBe(false);
     expect((await signOffStory(env.db, "bill-150", "priya", NOW)).ok).toBe(true);

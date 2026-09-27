@@ -29,3 +29,15 @@ export async function seededDatabase(now: Date = NOW): Promise<{ db: Db; file: s
     },
   };
 }
+
+/** The PRFAQ agreed for real in the database, as in the bolt 5 demo. */
+export async function agreePrfaqInDb(db: Db) {
+  await db.readBack.update({ where: { id: "rb-bill-142-dan" }, data: { assessment: "matches", note: null, text: "Monthly usage billing, with live usage visible so customers can budget." } });
+  await db.readBack.upsert({
+    where: { id: "rb-bill-142-security" },
+    create: { id: "rb-bill-142-security", epicId: "bill-142", personId: "security", text: "Usage pricing that stores no new personal data.", assessment: "matches", createdAt: NOW },
+    update: {},
+  });
+  await db.faqEntry.update({ where: { id: "faq-4" }, data: { answer: "They keep today's fee, capped, for 18 months, then choose." } });
+  await db.prfaq.update({ where: { id: "prfaq-142" }, data: { state: "agreed" } });
+}

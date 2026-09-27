@@ -195,3 +195,39 @@ describe("the ways out, guarded", () => {
     expect(drafts.draftIds).not.toContain("dr4");
   });
 });
+
+describe("QA review fixes", () => {
+  it("only the five text fields can be edited", () => {
+    const ctx = seeded();
+    expect(() => editPrfaqFields(prfaq(ctx), { customerQuoteExcerptId: "anything" } as never)).toThrow(/can't be edited here/);
+    expect(() => editPrfaqFields(prfaq(ctx), { epicId: "other" } as never)).toThrow();
+    expect(() => editPrfaqFields(prfaq(ctx), { state: "agreed" } as never)).toThrow();
+  });
+
+  it("the flat-fee FAQ stays internal and blocking, and needs a real answer", () => {
+    const ctx = seeded();
+    const f = ctx.faqEntries.find((x) => x.id === "faq-4")!;
+    expect(() => upsertFaq(prfaq(ctx), { ...f, blocking: false }, ctx)).toThrow(/stays internal and blocking/);
+    expect(() => upsertFaq(prfaq(ctx), { ...f, audience: "customer" }, ctx)).toThrow(/stays internal and blocking/);
+    expect(() => upsertFaq(prfaq(ctx), { ...f, answer: "n/a" }, ctx)).toThrow(/placeholder/);
+  });
+
+  it("team_aligned is computed: a new diverging read-back after agreement fails it", async () => {
+    const { agreePrfaq } = await import("../fixtures");
+    const ctx = agreePrfaq(seeded());
+    expect(evaluateRightThing(story(ctx, "BILL-150"), ctx).find((r) => r.key === "team_aligned")!.passed).toBe(true);
+    ctx.readBacks.find((r) => r.personId === "mei")!.assessment = "diverges";
+    const r = evaluateRightThing(story(ctx, "BILL-150"), ctx).find((x) => x.key === "team_aligned")!;
+    expect(r.passed).toBe(false);
+    expect(r.reason).toMatch(/no longer holds: Mei's read-back diverges/);
+  });
+
+  it("pasting a promise, an FAQ answer, or the headline with the subhead is too close", () => {
+    const ctx = seeded();
+    const p = prfaq(ctx);
+    expect(tooClose("You're charged fairly when you change plan.", p, ctx).tooClose).toBe(true);
+    expect(tooClose("You pay for each plan for the days you had it", p, ctx).tooClose).toBe(true);
+    expect(tooClose(`${p.headline} ${p.subhead}`, p, ctx).tooClose).toBe(true);
+  });
+
+});

@@ -15,9 +15,10 @@ function useAction() {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const run = (fn: () => Promise<ActionResult>, onDone?: () => void) =>
+  const run = (fn: () => Promise<ActionResult>, onDone?: () => void, after?: (r: ActionResult) => void) =>
     start(async () => {
       const r = await fn();
+      after?.(r);
       if (r.status === "refused") setMessage(r.reason);
       else if (r.status === "needs_confirmation") setMessage(r.warning);
       else {
@@ -52,7 +53,12 @@ function ReadBackPrompt({ epicId, existing }: { epicId: string; existing: string
       className="mt-3 rounded border border-dashed border-line px-3 py-2"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => writeReadBackUI(epicId, text), () => setOpen(false));
+        // Keep the form open when it's too close, so the person sees why and can reword it.
+        run(
+          () => writeReadBackUI(epicId, text),
+          () => undefined,
+          (r) => (r.status === "done" && !r.message ? setOpen(false) : undefined),
+        );
       }}
     >
       <label htmlFor="readback" className="block font-medium">
