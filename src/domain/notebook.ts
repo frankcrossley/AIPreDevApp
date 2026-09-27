@@ -46,7 +46,8 @@ export type NotebookOp =
   | { op: "createItem"; item: Item }
   | { op: "updateItem"; id: string; text: string }
   | { op: "archiveItem"; id: string }
-  | { op: "restoreItem"; id: string };
+  | { op: "restoreItem"; id: string }
+  | { op: "resolveItem"; id: string };
 
 /** Ids the editor may assign to new lines and chips. */
 const CLIENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -179,6 +180,7 @@ export function applyOps(ctx: DomainSnapshot, ops: NotebookOp[], now: Date): Dom
     if (o.op === "updateItem") items = items.map((i) => (i.id === o.id ? { ...i, text: o.text } : i));
     if (o.op === "archiveItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "archived" as const } : i));
     if (o.op === "restoreItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "open" as const } : i));
+    if (o.op === "resolveItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "resolved" as const } : i));
   }
   return { ...ctx, blocks, items };
 }
@@ -221,7 +223,7 @@ export function editedBlockIds(ops: NotebookOp[], ctx: DomainSnapshot): string[]
   for (const o of ops) {
     if (o.op === "updateBlock" && o.text !== undefined) ids.push(o.id);
     if (o.op === "deleteBlock") ids.push(o.id);
-    if (o.op === "updateItem" || o.op === "archiveItem" || o.op === "restoreItem") {
+    if (o.op === "updateItem" || o.op === "archiveItem" || o.op === "restoreItem" || o.op === "resolveItem") {
       const blockId = ctx.items.find((i) => i.id === o.id)?.blockId;
       if (blockId) ids.push(blockId);
     }
@@ -457,4 +459,49 @@ export function planChange(ops: NotebookOp[], story: Story, ctx: DomainSnapshot,
     needsConfirmation: reopen.reopen || deletes.affected.length > 0,
     warning: [reopen.reopen ? reopen.warning : "", deletes.warning].filter(Boolean).join(" "),
   };
+}
+
+// ---------- answering a question ----------
+
+/**
+ * Answers an open question: the answer goes in as a new line under it (optionally as a decision,
+ * which then needs its own stances), and the question is resolved. The ops go through planChange
+ * like any other edit.
+ */
+export function answerQuestion(input: {
+  ctx: DomainSnapshot;
+  itemId: string;
+  text: string;
+  asDecision: boolean;
+  actorId: string;
+  now: Date;
+  newId: () => string;
+}): { ops: NotebookOp[]; story: Story; citations: Citation[] } {
+  const { ctx, itemId, actorId, now, newId } = input;
+  const text = input.text.trim();
+  if (!text) throw new Error("Write the answer first");
+  const question = ctx.items.find((i) => i.id === itemId);
+  if (!question || question.type !== "question" || !isLiveItem(question)) throw new Error("That isn't an open question");
+  if (question.status !== "open") throw new Error("That question is already answered");
+  const block = ctx.blocks.find((b) => b.id === question.blockId);
+  const story = ctx.stories.find((s) => s.id === question.parentId);
+  if (!block || !story || question.parentType !== "story") throw new Error("That question isn't on a story's notebook");
+  const lines = sectionLines(story.id, block.section, ctx);
+  const at = lines.findIndex((l) => l.blockId === block.id);
+  const answerId = newId();
+  const next = [...lines.slice(0, at + 1), { blockId: answerId, itemId: null, itemType: input.asDecision ? "decision" : null, text }, ...lines.slice(at + 1)];
+  const ops = diffSection({ ctx, storyId: story.id, section: block.section, lines: next, actorId, now, newId });
+  return { ops: [...ops, { op: "resolveItem", id: question.id }], story, citations: answerCitations(answerId, block.id, [], ctx) };
+}
+
+/**
+ * An answer is traceable: it cites the line it answers, and any source excerpts the challenge
+ * was based on. So answering a question never leaves an unsourced line behind.
+ */
+export function answerCitations(answerBlockId: string, answeredBlockId: string, refs: string[], ctx: DomainSnapshot): Citation[] {
+  const excerptRefs = refs.filter((r) => ctx.excerpts.some((e) => e.id === r));
+  return [
+    { id: `cit-block-${answerBlockId}-${answeredBlockId}`, fromType: "block", fromId: answerBlockId, toType: "block", toId: answeredBlockId },
+    ...excerptRefs.map((r): Citation => ({ id: `cit-block-${answerBlockId}-${r}`, fromType: "block", fromId: answerBlockId, toType: "excerpt", toId: r })),
+  ];
 }

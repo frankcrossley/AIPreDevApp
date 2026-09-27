@@ -106,3 +106,21 @@ describe("panel ranking follows the checks", () => {
     expect(card.hint!.action!.disabledReason).toBe("Priya is the lead");
   });
 });
+
+describe("stances and answers on the panel", () => {
+  it("Dan can take a stance on the decision; Mei can't; Priya can change who's asked", () => {
+    const ctx = seeded();
+    const card = (who: string) => forThisItem(story(ctx, "BILL-150"), ctx, NOW, who).sections[0].cards.find((c) => c.id === "it-d1")!;
+    expect(card("dan").stances).toMatchObject({ reason: null, mine: null, askable: null });
+    expect(card("dan").stances!.rows.map((r) => [r.name, r.value])).toEqual([["Priya", "agree"], ["Sam", "agree"], ["Marcus", "agree"], ["Dan", null]]);
+    expect(card("mei").stances!.reason).toBe("You weren't asked for a stance on this");
+    expect(card("priya").stances!.askable!.filter((a) => a.asked).map((a) => a.id)).toEqual(["priya", "sam", "marcus", "dan"]);
+  });
+
+  it("the blocking question has a lead-only Answer", () => {
+    const ctx = seeded();
+    const q = (who: string) => forThisItem(story(ctx, "BILL-150"), ctx, NOW, who).sections[0].cards.find((c) => c.id === "it-q1")!;
+    expect(q("priya").actions.find((a) => a.kind === "answer_question")!.disabledReason).toBeNull();
+    expect(q("sam").actions.find((a) => a.kind === "answer_question")!.disabledReason).toBe("Priya is the lead");
+  });
+});

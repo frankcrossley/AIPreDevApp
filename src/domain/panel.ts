@@ -9,7 +9,8 @@ import { sourceLabel } from "./notebook-view";
 import { hatNoteOwner, readySummary, sessionDayLabel, whatBlocksReady } from "./scrum-master";
 import { describeSuggestion, editsDirectly } from "./suggestions";
 import { canTriage, mergeTargets } from "./triage";
-import type { DomainSnapshot, Draft, Epic, HatNote, Item, Story } from "./types";
+import { canRecordStance, stanceSummary, type StanceRow } from "./stances";
+import type { DomainSnapshot, Draft, Epic, HatNote, Item, StanceValue, Story } from "./types";
 
 export type ActionKind =
   | "decide"
@@ -21,7 +22,8 @@ export type ActionKind =
   | "merge"
   | "reject"
   | "move"
-  | "withdraw";
+  | "withdraw"
+  | "answer_question";
 
 export interface CardAction {
   kind: ActionKind;
@@ -46,6 +48,15 @@ export interface PanelCard {
   /** A hat's hint on this card, e.g. "PM · Fits BILL-160 better", with its own action. */
   hint: { tag: string; text: string; action: CardAction | null } | null;
   mergeTargets?: { blockId: string; text: string; disabledReason: string | null }[];
+  /** Decisions: where everyone asked stands, and whether the viewer can take a stance. */
+  stances?: {
+    rows: StanceRow[];
+    /** Why the viewer can't record a stance, or null when they can. */
+    reason: string | null;
+    mine: StanceValue | null;
+    /** The lead can change who's asked; these are the people to choose from. */
+    askable: { id: string; name: string; asked: boolean }[] | null;
+  };
 }
 
 export interface PanelSection {
@@ -125,11 +136,30 @@ export function forThisItem(story: Story, ctx: DomainSnapshot, now: Date, actorI
       const missing = i.requiredStanceIds.filter((p) => !given.has(p));
       const objecting = [...latest.values()].filter((s) => s.value === "object").map((s) => s.personId);
       const detail = objecting.length ? `${objecting.map(name).join(", ")} objects` : `Waiting on ${missing.map(name).join(", ")}`;
-      decisions.push({ ...itemCard(i, detail, objecting.length ? "alert" : "dashed"), actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)] });
+      const rows = stanceSummary(i, ctx);
+      const permission = canRecordStance(actorId, i.id, ctx);
+      const locked = story.state === "ready" || story.state === "exported";
+      const epic = ctx.epics.find((e) => e.id === story.epicId);
+      decisions.push({
+        ...itemCard(i, detail, objecting.length ? "alert" : "dashed"),
+        actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)],
+        stances: {
+          rows,
+          reason: locked ? `${story.key} is Ready` : permission.ok ? null : permission.reason,
+          mine: rows.find((r) => r.personId === actorId)?.value ?? null,
+          askable: isLead
+            ? (epic?.memberIds ?? []).map((id) => ({ id, name: name(id), asked: i.requiredStanceIds.includes(id) }))
+            : null,
+        },
+      });
     } else if (holdsUpCheck) {
       decisions.push({
         ...itemCard(i, `Needs a decision · owner ${name(i.ownerId)}`, "alert"),
-        actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)],
+        actions: [
+          { kind: "decide", label: "Decide now", disabledReason: null },
+          ...(i.type === "question" ? [leadOnly("answer_question", "Answer")] : []),
+          ...putToSession(i.id),
+        ],
       });
     } else {
       talking.push({ ...itemCard(i, `${CHIP_TAG[i.type] ?? i.type} · ${name(i.ownerId)}`, "dashed"), actions: putToSession(i.id) });

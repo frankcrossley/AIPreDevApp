@@ -6,7 +6,8 @@ import { cookies } from "next/headers";
 import type { SectionLine } from "@/domain/notebook";
 import { VIEWING_AS_COOKIE, currentActorId } from "@/server/actor";
 import { prisma } from "@/server/db";
-import { createDraftStory } from "@/server/lifecycle";
+import { createDraftStory, signOffStory } from "@/server/lifecycle";
+import { answerQuestionAction, recordStanceAction, saveTemplateChecksAction, setRequiredStancesAction } from "@/server/stances";
 import { saveSection, setItemBlocking, type SaveResult } from "@/server/notebook";
 import {
   acceptDraftAction,
@@ -114,6 +115,39 @@ export async function dismissHatNoteActionUI(noteId: string): Promise<ActionResu
 
 export async function putToSessionActionUI(sessionId: string, subjectId: string, storyId: string): Promise<ActionResult> {
   const r = await putToSessionAction(prisma, { sessionId, subjectId, storyId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+// ---------- stances, answers, sign-off, template checks ----------
+
+export async function recordStanceActionUI(itemId: string, value: "agree" | "concern" | "object", reason: string | null): Promise<ActionResult> {
+  const r = await recordStanceAction(prisma, { itemId, value, reason, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function setRequiredStancesActionUI(itemId: string, personIds: string[]): Promise<ActionResult> {
+  const r = await setRequiredStancesAction(prisma, { itemId, personIds, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function answerQuestionActionUI(itemId: string, text: string, asDecision: boolean, confirmReopen = false): Promise<ActionResult> {
+  const r = await answerQuestionAction(prisma, { itemId, text, asDecision, confirmReopen, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function signOffActionUI(storyId: string): Promise<ActionResult> {
+  const r = await signOffStory(prisma, storyId, await actor());
+  if (!r.ok) return { status: "refused", reason: r.reasons.join(" · ") };
+  refresh();
+  return { status: "done" };
+}
+
+export async function saveTemplateChecksActionUI(templateId: string, teamCheckKeys: string[]): Promise<ActionResult> {
+  const r = await saveTemplateChecksAction(prisma, { templateId, teamCheckKeys, actorId: await actor() });
   if (r.status === "done") refresh();
   return r;
 }

@@ -64,7 +64,7 @@ Every bolt is done when:
 - Hat notes are seeded; generating them and validating their hints (including `moveToId`) is bolt 6.
 - Delegates for triage aren't modelled.
 
-## [ ] Bolt 4 · Checks in the UI, stances and sign-off
+## [x] Bolt 4 · Checks in the UI, stances and sign-off
 **Goal.** Ready is earned in the interface.
 **Scope.**
 - Meters under the title, and the checks view with `fixTarget` links.
@@ -72,6 +72,10 @@ Every bolt is done when:
 - Lead sign-off, a template editor that locks floor checks, and the state pill.
 **Acceptance.** `04-checks.feature`, all scenarios.
 **Demo.** Take BILL-150 from 5 of 8 to Ready by answering the question, getting Dan's stance and answering the Architect.
+**Done.** Checks view with linked failing lines, stance controls, "Who's asked", answering questions, lead sign-off (UI and `POST /api/stories/:key/sign-off`), the template editor, and the state pill with drift. ADR-030 to ADR-033.
+**Deferred.**
+- The demo's last Right thing check (the PRFAQ agreed) is bolt 5; until then the demo and e2e set it in the database.
+- Stance round rules for disagreement (`two_rounds_then_decider`) and silence (`remind_once_then_owner_decides`) are bolt 8.
 
 ## [ ] Bolt 5 · PRFAQ and alignment
 **Goal.** Building the right thing is visible and gated.

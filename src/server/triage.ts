@@ -3,7 +3,7 @@
 // Each one is a single transaction with an Event; the rules are in src/domain.
 import { randomUUID } from "node:crypto";
 import { draftExpiresAt, draftExpiryDays, expireDrafts, restoreDraft } from "@/domain/drafts";
-import { diffSection, planChange, sectionLines } from "@/domain/notebook";
+import { answerCitations, diffSection, planChange, sectionLines } from "@/domain/notebook";
 import { acceptSuggestion, editsDirectly } from "@/domain/suggestions";
 import { acceptNote, canDismiss, canPutToSession, canTriage, canTriageNow, canWithdraw, mergeNote, moveDraft, rejectDraft } from "@/domain/triage";
 import type { Citation, DomainSnapshot, Draft } from "@/domain/types";
@@ -53,7 +53,7 @@ export async function acceptDraftAction(
     ...changeWrites(db, plan, story, ctx, input.actorId, now),
     ...citationWrites(db, citations),
     draftWrite(db, updated),
-    ...(draft.hatNoteId ? [db.hatNote.update({ where: { id: draft.hatNoteId }, data: { status: "accepted" } })] : []),
+    ...(draft.hatNoteId ? answeredNoteWrites(db, draft, ctx) : []),
     eventWrite(db, "draft.accepted", input.actorId, story.id, { draftId: draft.id, kind: draft.kind, reopened: plan.reopen.reopen }, now),
   ]);
   return { status: "done" };
@@ -213,6 +213,7 @@ export async function answerHatNoteAction(
   if (plan.needsConfirmation && !input.confirmReopen) return { status: "needs_confirmation", warning: plan.warning };
   await db.$transaction([
     ...changeWrites(db, plan, story, ctx, input.actorId, now),
+    ...citationWrites(db, answerCitations(blockId, block.id, note.refs, ctx)),
     db.hatNote.update({ where: { id: note.id }, data: { status: "accepted" } }),
     eventWrite(db, "hat_note.answered", input.actorId, story.id, { hatNoteId: note.id, blockId }, now),
   ]);
@@ -272,4 +273,12 @@ export async function expireOverdueDrafts(db: Db, now = new Date()): Promise<num
     ]),
   );
   return expired.length;
+}
+
+/** Accepting a suggested answer closes its hat note and makes the answer traceable, like the lead's own. */
+function answeredNoteWrites(db: Db, draft: Draft, ctx: DomainSnapshot) {
+  const note = ctx.hatNotes.find((h) => h.id === draft.hatNoteId);
+  const writes = [db.hatNote.update({ where: { id: draft.hatNoteId! }, data: { status: "accepted" } })];
+  if (!note || !draft.blockId || !draft.afterBlockId) return writes;
+  return [...writes, ...citationWrites(db, answerCitations(draft.blockId, draft.afterBlockId, note.refs, ctx))];
 }

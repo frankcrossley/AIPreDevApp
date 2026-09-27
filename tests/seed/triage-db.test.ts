@@ -206,3 +206,17 @@ describe("every path goes through the same protections", () => {
     expect(await putToSessionAction(env.db, { sessionId: "sess-1", subjectId: "it-q151", storyId: "bill-150", actorId: "sam", now: NOW })).toMatchObject({ status: "refused" });
   });
 });
+
+describe("answers are traceable", () => {
+  it("the lead's answer to the Architect cites the line and ADR-022, so claims stay sourced", async () => {
+    const { loadSnapshot } = await import("@/server/snapshot");
+    const { evaluateBuiltRight } = await import("@/domain/checks");
+    await answerHatNoteAction(env.db, { noteId: "hn3", actorId: "priya", text: "New event from metering; no exception to ADR-022.", asQuestion: false, now: NOW });
+    const block = await env.db.block.findFirstOrThrow({ where: { text: "New event from metering; no exception to ADR-022." } });
+    expect((await env.db.citation.findMany({ where: { fromId: block.id } })).map((c) => c.toId).sort()).toEqual(["b4", "ex-adr022"]);
+    const ctx = await loadSnapshot(env.db);
+    const results = evaluateBuiltRight(ctx.stories.find((s) => s.id === "bill-150")!, ctx);
+    expect(results.find((r) => r.key === "claims_sourced")!.passed).toBe(true);
+    expect(results.find((r) => r.key === "arch_questions_answered")!.passed).toBe(true);
+  });
+});

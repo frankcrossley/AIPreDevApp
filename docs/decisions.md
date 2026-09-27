@@ -154,3 +154,23 @@ Suggestions are Drafts rather than their own entity because they need exactly wh
 **Context.** Drafts must leave the panel when they expire, and people want to put things to the next session from the panel.
 **Decision.** The expiry pass (`expireDrafts`) runs deterministically whenever the workspace loads, archiving overdue drafts and logging `draft.expired`. Anyone can put an item or hat note that belongs to the story on the next planned session; it's stored in `Session.agenda`. Bolt 8 lists those first, then the computed agenda (ADR-011). The panel summary groups blockers into decisions, answers and other checks, with epic checks as a separate sentence, and counts drafts expiring before the next session (or within three days if none is planned).
 **Consequence.** No background job is needed for the prototype. A real deployment would run the same function on a schedule.
+
+## ADR-030 · Stories reach Ready through sign-off, not by agreeing on their own
+**Context.** The lifecycle has an `agreed` state between refinement and Ready. If a story moved to `agreed` by itself once its stances were in, any later answer or line would reopen it straight away.
+**Decision.** A story doesn't move to `agreed` automatically. The lead's sign-off takes it from `in_refinement` to `ready`, passing through `agreed` with that guard (ADR-015). The only route that changes a story's state is `POST /api/stories/:key/sign-off`, which calls the lifecycle's `signOffStory`; a static test fails the build if another route touches state.
+**Consequence.** The team can keep answering and sourcing until the lead signs off. `agreed` stays available for bolt 8's session flow.
+
+## ADR-031 · Stances, who's asked, and answering questions
+**Context.** "Only people take stances", and bolt 4 adds the controls.
+**Decision.** A person records their own stance (agree, concern or object) on a decision they were asked about, in its current round; an objection needs a reason. The lead changes who's asked. Stances can't change on a Ready or exported story: edit it to reopen it first. Answering a blocking question is lead-only: the answer goes in as a new line under the question (optionally as a decision, which then asks for its own stances) and the question is resolved. Everyone else suggests an answer through the notebook.
+**Consequence.** The demo path works entirely in the interface: the lead answers, the tech lead agrees, the lead answers the Architect, and the lead signs off.
+
+## ADR-032 · Template checks and drift
+**Context.** "Floor checks can't be removed; team checks are yours", but someone has to own the team's checks.
+**Decision.** Product, the tech lead or the head of product can change a template's team checks, from Details → Edit checks. Floor checks are listed, ticked and locked. Changes are logged. A Ready or exported story whose checks now fail (because the template or the epic changed) shows "Ready · checks changed" and lists them; it doesn't revert on its own (ADR-015).
+**Consequence.** BILL-152 in the seed shows drift, which is honest about its data.
+
+## ADR-033 · Answers cite what they answer
+**Context.** Answering the Architect adds a line under "What we think", a required section, and an unsourced line there would fail "Claims sourced": answering one check would break another.
+**Decision.** An answer, whether the lead's or an accepted suggestion, cites the line it answers, plus any source excerpts the hat note was based on (for the Architect's challenge, ADR-022). Answers to questions cite the question.
+**Consequence.** Answers are traceable to what prompted them, and closing a challenge never leaves an unsourced line behind.

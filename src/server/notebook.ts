@@ -48,6 +48,8 @@ export function opWrites(db: Db, ops: NotebookOp[], storyId: string, actorId: st
         return [db.item.update({ where: { id: o.id }, data: { text: o.text } }), event("item.edited", { itemId: o.id, text: o.text })];
       case "archiveItem":
         return [db.item.update({ where: { id: o.id }, data: { status: "archived" } }), event("item.archived", { itemId: o.id })];
+      case "resolveItem":
+        return [db.item.update({ where: { id: o.id }, data: { status: "resolved" } }), event("item.resolved", { itemId: o.id })];
       case "restoreItem":
         return [db.item.update({ where: { id: o.id }, data: { status: "open" } }), event("item.restored", { itemId: o.id })];
     }

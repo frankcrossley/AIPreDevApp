@@ -10,7 +10,7 @@
 | **Story** | id, key, epicId, title, leadId, templateId, state, promiseId, estimate, hasUiChange, mockUri, jiraKey, sprint, signedOffBy, signedOffAt | `state` follows the lifecycle below. |
 | **Block** | id, parentType (`story`, `epic`), parentId, section, order, text, authorId, createdAt, updatedAt | A line or paragraph in the notebook. Tiptap content maps to blocks. |
 | **Item** | id, parentType, parentId, blockId, type (`decision`, `question`, `assumption`, `risk`, `talking_point`, custom), text, status (`open`, `resolved`, `dropped`, `archived`), ownerId, blocking, requiredStanceIds[], stanceRound, citations[] | Created with a chip prefix (`decision:`, `?`, `assume:`, `risk:`) or by selecting text. Can be turned back into plain text, which archives it with its history (ADR-021). |
-| **Stance** | id, itemId, personId, value (`agree`, `concern`, `object`), reason, round, createdAt | People only. `object` requires a reason. |
+| **Stance** | id, itemId, personId, value (`agree`, `concern`, `object`), reason, round, createdAt | People only, and only the people asked (`requiredStanceIds`, set by the lead). `object` requires a reason. Recorded in the decision's current round (ADR-031). |
 | **Source** | id, kind (`call`, `survey`, `ticket`, `doc`, `chat`, `code`, `adr`), title, date, uri | Imported or seeded. |
 | **Excerpt** | id, sourceId, text, locator (timestamp, line or row), kind (`quote`, `theme`), note | The unit you cite. Quoted text must be an exact substring of the source. |
 | **Citation** | id, fromType (`block`, `item`, `criterion`, `promise`), fromId, toType (`block`, `excerpt`), toId | Every sourced claim resolves through a citation. The `citations[]` on other entities are these rows, not stored fields. |

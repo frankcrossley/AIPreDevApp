@@ -64,3 +64,15 @@ describe("there is no way to force Ready (code guard)", () => {
     for (const f of routes) expect(readFileSync(f, "utf8"), f).not.toMatch(STORY_WRITE);
   });
 });
+
+describe("routes", () => {
+  it("the only route that changes a story's state is sign-off, and it goes through the lifecycle", () => {
+    const routes = files(SRC).filter((f) => /[/\\]route\.tsx?$/.test(f));
+    const touching = routes.filter((f) => /signOff|transition|state/i.test(readFileSync(f, "utf8")));
+    expect(touching.map((f) => path.relative(SRC, f))).toEqual([path.join("app", "api", "stories", "[key]", "sign-off", "route.ts")]);
+    const src = readFileSync(touching[0], "utf8");
+    expect(src).toMatch(/from "@\/server\/lifecycle"/);
+    expect(src).toMatch(/signOffStory\(/);
+    expect(src).not.toMatch(/["']ready["']/);
+  });
+});
