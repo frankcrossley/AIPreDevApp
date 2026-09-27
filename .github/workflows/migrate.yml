@@ -1,0 +1,72 @@
+# Applies Prisma migrations to the production database (ADR-037).
+# Runs as the schema owner from the protected `production` environment, so migration
+# credentials never reach Vercel. Configure the environment's required reviewers and secrets
+# as described in docs/deploy.md.
+name: Migrate production database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prisma/migrations/**"
+      - "prisma/schema.prisma"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Prisma's migration engine negotiates TLS but doesn't verify the server certificate,
+      # whatever the URL says. A local PgBouncer makes the real connection with verify-full
+      # against the database's CA; Prisma talks to it over loopback only.
+      - name: Start a verifying proxy to the database
+        env:
+          DATABASE_CA_CERT: ${{ secrets.DATABASE_CA_CERT }}
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: |
+          test -n "$MIGRATION_DATABASE_URL" || { echo "MIGRATION_DATABASE_URL secret is not set"; exit 1; }
+          test -n "$DATABASE_CA_CERT" || { echo "DATABASE_CA_CERT secret is not set"; exit 1; }
+          sudo apt-get update -q > /dev/null && sudo apt-get install -y -q pgbouncer > /dev/null
+          sudo systemctl stop pgbouncer || true
+          work="$RUNNER_TEMP/db-proxy"
+          mkdir -p -m 700 "$work"
+          printf '%s' "$DATABASE_CA_CERT" | sed 's/\\n/\n/g' > "$work/ca.crt"
+          url=$(node .github/scripts/verified-db-proxy.mjs "$MIGRATION_DATABASE_URL" "$work/ca.crt" "$work")
+          echo "PROXY_URL=$url" >> "$GITHUB_ENV"
+
+      - name: Check the connection is verified
+        run: |
+          npx prisma migrate status || true
+          if grep -qi "certificate verify failed" "$RUNNER_TEMP/db-proxy/pgbouncer.log"; then
+            echo "The database's certificate did not verify against DATABASE_CA_CERT"; exit 1
+          fi
+        env:
+          MIGRATION_DATABASE_URL: ${{ env.PROXY_URL }}
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        env:
+          MIGRATION_DATABASE_URL: ${{ env.PROXY_URL }}
+
+      - name: Stop the proxy
+        if: always()
+        run: |
+          test -f "$RUNNER_TEMP/db-proxy/pgbouncer.pid" && kill "$(cat "$RUNNER_TEMP/db-proxy/pgbouncer.pid")" || true
+          rm -rf "$RUNNER_TEMP/db-proxy"

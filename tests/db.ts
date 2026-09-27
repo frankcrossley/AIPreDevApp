@@ -1,31 +1,31 @@
-// A throwaway SQLite database with the migrations applied and the seed written.
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import Database from "better-sqlite3";
+// A throwaway Postgres database with the migrations applied and the seed written.
+import { randomUUID } from "node:crypto";
 import { normaliseSeed } from "@/seed/normalise";
 import { createPrisma, type Db } from "@/server/prisma";
 import { writeSnapshot } from "../prisma/write-snapshot";
 import { NOW, seedJson } from "./fixtures";
+import { createFromTemplate, dropDatabase, urlFor } from "./pg";
 
-export async function seededDatabase(now: Date = NOW): Promise<{ db: Db; file: string; cleanup: () => Promise<void> }> {
-  const dir = mkdtempSync(path.join(tmpdir(), "predev-"));
-  const file = path.join(dir, "test.db");
-  const sqlite = new Database(file);
-  const migrations = path.resolve("prisma/migrations");
-  for (const m of readdirSync(migrations).filter((d) => !d.endsWith(".toml")).sort()) {
-    sqlite.exec(readFileSync(path.join(migrations, m, "migration.sql"), "utf8"));
-  }
-  sqlite.close();
-  const db = createPrisma(`file:${file}`);
+export interface TestDatabase {
+  db: Db;
+  /** Connection URL as the owner, for tests that need raw SQL. */
+  url: string;
+  cleanup: () => Promise<void>;
+}
+
+export async function seededDatabase(now: Date = NOW): Promise<TestDatabase> {
+  const name = `predev_t_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  await createFromTemplate(name);
+  const url = urlFor(name);
+  const db = createPrisma(url);
   const { snapshot, settings } = normaliseSeed(structuredClone(seedJson), now);
   await writeSnapshot(db, snapshot, settings);
   return {
     db,
-    file,
+    url,
     cleanup: async () => {
       await db.$disconnect();
-      rmSync(dir, { recursive: true, force: true });
+      await dropDatabase(name);
     },
   };
 }

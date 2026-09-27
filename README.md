@@ -19,6 +19,7 @@ This pack is everything Claude Code needs to build the prototype, written the wa
 | `docs/domain.md` | Entities, lifecycle state machine, invariants, how checks are computed |
 | `docs/ai-teammate.md` | The Scrum Master and the hats, the structured-output contracts, the "never adds a fact" validator |
 | `docs/decisions.md` | Decision records for the key build choices |
+| `docs/deploy.md` | Production on Vercel + Supabase: setup, migrations, secrets, rotation |
 | `docs/screens.md` | Layout spec for the single workspace, panel contexts, design tokens |
 | `docs/acceptance/*.feature` | Acceptance criteria per screen, written as Gherkin |
 | `docs/wireframes/` | Wireframe source files from the design canvas (reference only) |

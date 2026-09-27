@@ -47,8 +47,8 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Decision.** Everything in `src/domain/` takes a plain `DomainSnapshot` and never imports Prisma. `src/server/snapshot.ts` loads one from the database; `src/seed/normalise.ts` builds one from `seed.json`. A round-trip test proves the two give identical check results.
 **Consequence.** Loading the whole workspace on each read is fine at prototype scale. If it gets slow, load per epic, not per check.
 
-## ADR-010 · List fields are JSON strings in SQLite
-**Context.** SQLite has no array columns, and the prototype doesn't need to query inside those lists.
+## ADR-010 · List fields are JSON strings
+**Context.** SQLite has no array columns, and the prototype doesn't need to query inside those lists. The move to Postgres (ADR-037) kept them as text rather than change every mapping at once.
 **Decision.** Fields like `memberIds`, `requiredStanceIds` and `refs` are stored as `...Json` text columns. Only `src/server/snapshot.ts` (read) and `prisma/write-snapshot.ts` (seed write) know that.
 **Consequence.** Moving to Postgres means changing those two files and the schema, not the domain.
 
@@ -67,10 +67,10 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Decision.** `src/server/lifecycle.ts` is the only code in `src/` that writes Story rows, and it only writes the state and sign-off returned by the domain's `transition`, `signOff` and `reopenOnEdit`, or a new story built by `newDraftStory` (always `draft`). It also holds the story writes that don't touch state or sign-off: dropping (`archivedAt`), moving to a new epic (`epicId`, creating the epic and its draft PRFAQ), and linking a promise (`promiseId`), each guarded by a domain function (ADR-036). Other modules that need to reopen a story take `reopenWrites()` from it and put them in their own transaction. `transition()` refuses `ready` outright; only `signOff()` reaches it. A static test (`tests/domain/no-force-ready.test.ts`) fails the build if anything else writes stories. The seeder writes outside `src/`, in `prisma/`.
 **Consequence.** New routes that change a story's state must call the lifecycle module. The sign-off route in bolt 4 adds an API test on top.
 
-## ADR-014 · `db:reset` deletes the local file instead of `prisma migrate reset`
-**Context.** Prisma 7 blocks `migrate reset` when run by an AI agent without explicit consent. The prototype database is a throwaway SQLite file that `db:reset` must be able to recreate at any time, including before end-to-end tests.
-**Decision.** `scripts/db-reset.ts` deletes the SQLite file (only when it's a `.db` file inside `./prisma`), runs `prisma migrate deploy`, and seeds.
-**Consequence.** Same result as a reset for the prototype. It refuses to run against any other database URL.
+## ADR-014 · `db:reset` recreates the local database instead of `prisma migrate reset`
+**Context.** Prisma 7 blocks `migrate reset` when run by an AI agent without explicit consent. The local database is throwaway, and `db:reset` must be able to recreate it at any time, including before end-to-end tests.
+**Decision.** `scripts/db-reset.ts` drops and recreates the local Postgres database named in `DATABASE_URL` (amended by ADR-037; it used to delete a SQLite file), runs `prisma migrate deploy`, and seeds. It goes through the Prisma CLI, not a raw driver.
+**Consequence.** Same result as a reset. It refuses any host that isn't this machine, so it can never drop a shared or production database.
 
 ## ADR-015 · Ready is reached once and left only through a reopen
 **Context.** Checks are computed on read (ADR-007), but the lifecycle also stores `state`. The seed has BILL-152 exported while the epic's PRFAQ is still a draft, so its checks fail today.
@@ -190,3 +190,14 @@ Template changes apply at once to every story on the template (there is no per-s
 **Context.** Such stories are flagged, not blocking, with three ways out.
 **Decision.** The epic owner can add a promise the story serves, move the story to its own new epic (owned by them, same decider, members the mover and the story lead, big-change template, key from the shared numbering, and an empty draft PRFAQ headed with the story's title for the new owner to write), or drop it. All three act only on a story on that epic that serves no promise, and not on agreed, Ready or exported stories (reopen them by editing first). FAQ links to stories since moved or dropped are marked, and let go on the entry's next save. Dropping is only for a story that isn't in refinement yet, and archives it (`archivedAt`), never deletes it; archived stories leave the backlog, the agenda and the epic's checks. These story writes live in `src/server/lifecycle.ts` with the other story writes (ADR-013).
 **Consequence.** The epic stays honest about what each story is for.
+
+## ADR-037 · Production data lives in Supabase Postgres, behind a least-privilege role
+**Context.** Production returned 500 on every workspace page: the app only knew SQLite, `DATABASE_URL` was read as a file path, and no database file is deployed (it's gitignored, and a Vercel function's disk is read-only and per instance). The missing file surfaced as `Invalid prisma.person.findMany() invocation`, the first query of every request. A SQLite file can't persist writes on Vercel, so the fix is a real database.
+**Decision.**
+- Postgres everywhere, one Prisma provider: Supabase in production, a local Postgres for development and tests. The SQLite migrations were replaced by a Postgres baseline (`0001_init`); nothing had been deployed, so no data was lost. Queries go through `@prisma/adapter-pg`.
+- `src/server/database-config.ts` validates the environment and refuses instead of guessing: production needs `DATABASE_URL`, only `postgresql://` URLs are accepted, and a remote host needs `DATABASE_CA_CERT` so TLS verifies the server certificate. TLS is set in code, not by `sslmode` in the URL. The client is created on first use, so builds need no credentials.
+- The app runs as `app_runtime`, which may only read and write rows: no DDL, no `TRUNCATE`, and no access to migration history. Every table has row level security with a policy for `app_runtime` only, and `anon`, `authenticated` and `PUBLIC` have no grants, so Supabase's Data API exposes nothing even if a key leaks. The role is created without a password by migration `0002_security`; operators enable its login from the secret manager. `tests/seed/security-db.test.ts` fails if a table lacks RLS or its policy.
+- Migrations run from CI (`.github/workflows/migrate.yml`) as the schema owner, in a protected GitHub environment. Vercel holds only the runtime connection, through Supabase's transaction pooler. `npm run build` generates the Prisma client and never touches a database.
+- Seeding a deployment is a deliberate one-off: `db:seed` only seeds an empty database, and a remote one only when `SEED_CONFIRM` names its host. `db:reset` stays local-only (ADR-014).
+- `src/` and `scripts/` may not import a raw driver (`pg`); the story-write guard (ADR-013) covers it.
+**Consequence.** A misconfigured deployment fails at the first request with an error that names the setting, not with a confusing query error against an empty database. Developers need Postgres locally (`docker compose up -d`). Schema changes need a migration that also enables RLS and the runtime policy on new tables. The app still has no login (ADR-003); the database hardening doesn't change who can use a deployment, so production should sit behind Vercel Deployment Protection until auth is built.

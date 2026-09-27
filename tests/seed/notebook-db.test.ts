@@ -1,10 +1,10 @@
 // Notebook saves against a real database: autosave, the held edit to agreed content, and reopening.
-import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDraftStory } from "@/server/lifecycle";
 import { saveSection, setItemBlocking } from "@/server/notebook";
 import { seededDatabase } from "../db";
 import { NOW } from "../fixtures";
+import { sql } from "../pg";
 
 let env: Awaited<ReturnType<typeof seededDatabase>>;
 beforeEach(async () => {
@@ -92,9 +92,8 @@ describe("saving a section", () => {
   it("a failed edit leaves the story as it was (reopen and edit are one transaction)", async () => {
     await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
     // Make the block insert fail inside the database, after the reopen writes are queued.
-    const sqlite = new Database(env.file);
-    sqlite.exec("CREATE TRIGGER no_blocks BEFORE INSERT ON Block BEGIN SELECT RAISE(ABORT, 'refused'); END;");
-    sqlite.close();
+    await sql(env.url, `CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$`);
+    await sql(env.url, `CREATE TRIGGER no_blocks BEFORE INSERT ON "Block" FOR EACH ROW EXECUTE FUNCTION refuse()`);
     const lines = [{ blockId: "blk-x", itemId: null, itemType: null, text: "A new line" }];
     await expect(saveSection(env.db, { storyId: "bill-150", section: "Edge cases", lines, actorId: "priya", confirmReopen: true, now: NOW })).rejects.toThrow();
     expect((await env.db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(1);

@@ -6,7 +6,7 @@ import { normaliseSeed } from "../../src/seed/normalise";
 import { createPrisma } from "../../src/server/prisma";
 import { writeSnapshot } from "../../prisma/write-snapshot";
 
-export const E2E_DATABASE_URL = "file:./prisma/e2e.db";
+export const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/predev_e2e";
 export const db = createPrisma(E2E_DATABASE_URL);
 
 export async function resetDb() {

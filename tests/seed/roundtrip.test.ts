@@ -1,6 +1,5 @@
-// The seeder writes the snapshot to SQLite and loadSnapshot reads the same data back,
+// The seeder writes the snapshot to Postgres and loadSnapshot reads the same data back,
 // so the checks the UI will show equal the ones the domain tests prove.
-import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { evaluateBuiltRight, evaluatePrfaqAgreement, evaluateRightThing } from "@/domain/checks";
 import { buildAgenda } from "@/domain/scrum-master";
@@ -9,6 +8,7 @@ import { normaliseSeed } from "@/seed/normalise";
 import { loadSnapshot } from "@/server/snapshot";
 import { seededDatabase } from "../db";
 import { NOW, seedJson } from "../fixtures";
+import { sql } from "../pg";
 
 let env: Awaited<ReturnType<typeof seededDatabase>>;
 let loaded: DomainSnapshot;
@@ -23,7 +23,7 @@ afterAll(() => env?.cleanup());
 
 const byId = <T extends { id: string }>(xs: T[]) => [...xs].sort((a, b) => a.id.localeCompare(b.id));
 
-describe("seed round trip through SQLite", () => {
+describe("seed round trip through Postgres", () => {
   it("loads back exactly what was written", () => {
     for (const key of Object.keys(expected) as (keyof DomainSnapshot)[]) {
       expect(byId(loaded[key] as { id: string }[]), key).toEqual(byId(expected[key] as { id: string }[]));
@@ -40,10 +40,9 @@ describe("seed round trip through SQLite", () => {
     expect(buildAgenda("sess-1", loaded, NOW)).toEqual(buildAgenda("sess-1", expected, NOW));
   });
 
-  it("stores no ready flag", () => {
-    const sqlite = new Database(env.file, { readonly: true });
-    const columns = sqlite.prepare("select name from pragma_table_info('Story')").all() as { name: string }[];
-    sqlite.close();
+  it("stores no ready flag", async () => {
+    const columns = await sql<{ name: string }>(env.url, "SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'Story'");
+    expect(columns.length).toBeGreaterThan(0);
     expect(columns.map((c) => c.name).filter((n) => /ready/i.test(n))).toEqual([]);
   });
 });

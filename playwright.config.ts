@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 const PORT = 3100;
 // End-to-end tests use their own database, reset and seeded before the server starts.
-const DATABASE_URL = "file:./prisma/e2e.db";
+const DATABASE_URL = process.env.E2E_DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/predev_e2e";
 // Cloud containers ship a Chromium build; use it when the pinned one isn't installed.
 const preinstalled = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 

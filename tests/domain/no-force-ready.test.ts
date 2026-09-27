@@ -20,13 +20,14 @@ function files(dir: string): string[] {
 }
 
 // Any write through the story delegate (including across lines), raw SQL, aliasing the delegate,
-// or opening SQLite directly.
+// or opening a raw database driver (ADR-037: scripts go through the Prisma CLI).
 const STORY_WRITE = new RegExp(
   [
     String.raw`\.story\s*\.\s*(update|upsert|create|delete)\w*\s*\(`,
     String.raw`\$(executeRaw|queryRaw)\w*`,
     String.raw`=\s*\w+\s*\.\s*story\s*[;,)\n]`,
-    String.raw`from\s+["']better-sqlite3["']`,
+    String.raw`from\s+["'](better-sqlite3|pg|postgres)["']`,
+    String.raw`require\(\s*["'](better-sqlite3|pg|postgres)["']\s*\)`,
   ].join("|"),
 );
 
@@ -39,10 +40,14 @@ describe("there is no way to force Ready (code guard)", () => {
       "await db.$queryRawUnsafe('UPDATE Story')",
       "const s = db.story;",
       'import Database from "better-sqlite3";',
+      'import pg from "pg";',
+      "import { Client } from 'pg';",
+      'const pg = require("pg");',
     ]) {
       expect(STORY_WRITE.test(bad), bad).toBe(true);
     }
     expect(STORY_WRITE.test("db.story.findMany({")).toBe(false);
+    expect(STORY_WRITE.test('import type { PoolConfig } from "pg";')).toBe(true);
   });
 
   it("nothing in src/ or scripts/ but the lifecycle module writes Story rows", () => {

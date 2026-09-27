@@ -15,7 +15,7 @@ A single workspace where product teams turn raw input (notes, discovery calls, s
 
 - Next.js (App Router) + TypeScript, strict mode
 - Tiptap for the notebook editor, with custom nodes for item chips (see ADR-002)
-- SQLite via Prisma for the prototype
+- Postgres via Prisma (`@prisma/adapter-pg`): Supabase in production, local Postgres for dev and tests (ADR-037)
 - Anthropic TypeScript SDK, called server-side only. Model from `ANTHROPIC_MODEL` (default `claude-sonnet-5`), key from `ANTHROPIC_API_KEY`
 - Vitest for unit tests, Playwright for end-to-end
 - Tailwind with the tokens in `docs/screens.md`
@@ -25,7 +25,7 @@ A single workspace where product teams turn raw input (notes, discovery calls, s
 Set these up in bolt 1 and keep them working:
 
 - `npm run dev` — local app with seed data loaded
-- `npm run db:reset` — reset the database and re-seed from `seed/`
+- `npm run db:reset` — reset the local database and re-seed from `seed/` (needs local Postgres: `docker compose up -d`)
 - `npm test` — unit tests
 - `npm run e2e` — Playwright tests
 - `npm run lint` and `npm run typecheck`

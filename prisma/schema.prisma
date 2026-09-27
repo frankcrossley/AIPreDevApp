@@ -1,5 +1,5 @@
 // Prisma schema for the prototype. Mirrors docs/domain.md.
-// SQLite has no list columns: fields ending in `Json` hold JSON arrays (ADR-010),
+// List fields ending in `Json` hold JSON arrays as text (ADR-010, kept on Postgres, ADR-037),
 // mapped in src/server/snapshot.ts (read) and prisma/write-snapshot.ts (seed write) only.
 // There is no ready flag anywhere. Check results are computed on read (ADR-007).
 
@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Person {

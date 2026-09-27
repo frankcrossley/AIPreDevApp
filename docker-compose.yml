@@ -1,0 +1,14 @@
+# Local Postgres for development and tests (ADR-037). Matches production's major version.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: predev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - predev-pg:/var/lib/postgresql/data
+volumes:
+  predev-pg:
