@@ -106,3 +106,28 @@ describe("what blocks Ready", () => {
     expect(owners.criteria_traced).toBe("mei");
   });
 });
+
+describe("the Scrum Master summary", () => {
+  it("counts decisions and answers from the checks, and the drafts expiring before the session", async () => {
+    const { readySummary } = await import("@/domain/scrum-master");
+    const ctx = seeded();
+    expect(readySummary(story(ctx, "BILL-150"), ctx, NOW)).toBe(
+      "Two decisions and one answer stand between this and Ready. The epic's PRFAQ isn't agreed yet. Three drafts here expire before Thu 3 Oct.",
+    );
+  });
+
+  it("names the lead once only sign-off is left, and says Ready when it is", async () => {
+    const { readySummary } = await import("@/domain/scrum-master");
+    const ctx = makeBill150Pass(seeded());
+    ctx.drafts = [];
+    expect(readySummary(story(ctx, "BILL-150"), ctx, NOW)).toBe("Every check passes. Waiting on Priya to sign off as Ready.");
+    expect(readySummary(story(ctx, "BILL-152"), ctx, NOW)).toBe("Ready. Nothing stands between this and Jira.");
+  });
+
+  it("counts desk work as other checks", async () => {
+    const { readySummary } = await import("@/domain/scrum-master");
+    const ctx = seeded();
+    ctx.drafts = [];
+    expect(readySummary(story(ctx, "BILL-160"), ctx, NOW)).toBe("Four other checks stand between this and Ready. The epic's PRFAQ isn't agreed yet.");
+  });
+});

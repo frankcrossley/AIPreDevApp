@@ -4,8 +4,11 @@ import { cache } from "react";
 import { currentActorId } from "./actor";
 import { prisma } from "./db";
 import { loadSnapshot } from "./snapshot";
+import { expireOverdueDrafts } from "./triage";
 
 export const getWorkspace = cache(async () => {
+  // The Scrum Master's expiry pass: deterministic, and cheap enough to run on every load.
+  await expireOverdueDrafts(prisma);
   const ctx = await loadSnapshot(prisma);
   const actorId = await currentActorId(ctx.people);
   const team = await prisma.setting.findUnique({ where: { key: "team" } });

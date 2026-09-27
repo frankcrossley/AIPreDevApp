@@ -144,7 +144,11 @@ export interface Citation {
   toId: string;
 }
 
-export type DraftStatus = "pending" | "accepted" | "merged" | "rejected" | "expired";
+/** `withdrawn`: a suggestion its author took back before anyone triaged it. */
+export type DraftStatus = "pending" | "accepted" | "merged" | "rejected" | "expired" | "withdrawn";
+
+/** A suggestion's change to the notebook (ADR-025). */
+export type SuggestionOp = "add" | "edit" | "remove" | "chip";
 
 export interface Draft {
   id: string;
@@ -161,6 +165,21 @@ export interface Draft {
   triagedAt: Date | null;
   /** The block created when the draft was accepted or merged. */
   resultBlockId: string | null;
+  /** `note`: something added for the lead to triage. `suggestion`: a proposed notebook edit (ADR-025). */
+  kind: "note" | "suggestion";
+  /** Suggestions only: the section, the change, and the line it applies to. */
+  section: string | null;
+  op: SuggestionOp | null;
+  /** For add: the proposed new line's id. For edit, remove and chip: the existing line. */
+  blockId: string | null;
+  /** For add: the line it goes after (null: the top of the section). */
+  afterBlockId: string | null;
+  /** For add and chip: the chip it carries (null: plain text / remove the chip). */
+  itemType: string | null;
+  /** Set when the suggestion answers a hat note; accepting it marks the note answered. */
+  hatNoteId: string | null;
+  /** Edit suggestions: the line's text when the suggestion was made, to spot a stale one. */
+  baseText: string | null;
 }
 
 export type Hat = "qa" | "arch" | "eng" | "sec" | "pm";
@@ -169,12 +188,14 @@ export type HatNoteKind = "challenge" | "gap" | "conflict" | "suggestion";
 export interface HatNote {
   id: string;
   hat: Hat;
-  targetType: "story" | "epic" | "block" | "item" | "criterion";
+  targetType: "story" | "epic" | "block" | "item" | "criterion" | "draft";
   targetId: string;
   kind: HatNoteKind;
   text: string;
   refs: string[];
   status: "open" | "accepted" | "dismissed";
+  /** A Product-hat note on a draft can suggest a better home for it. */
+  moveToId: string | null;
 }
 
 export interface Criterion {

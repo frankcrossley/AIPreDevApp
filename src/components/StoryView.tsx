@@ -1,12 +1,12 @@
 // Story view (V6Story): the notebook in the centre, "For this item" on the right.
-import { evaluateBuiltRight, evaluateRightThing } from "@/domain/checks";
-import { STATE_LABELS, meterOf } from "@/domain/backlog";
+import { STATE_LABELS } from "@/domain/backlog";
 import { notebookView } from "@/domain/notebook-view";
-import { panelSections } from "@/domain/panel";
-import type { CheckResult, DomainSnapshot, Story } from "@/domain/types";
-import { anchorFor } from "@/domain/anchors";
+import { forThisItem } from "@/domain/panel";
+import { canTriage } from "@/domain/triage";
+import type { DomainSnapshot, Story } from "@/domain/types";
 import { storyEvents } from "@/server/workspace";
-import { Meters, type MeterLine } from "./Meters";
+import { ChecksView } from "./ChecksView";
+import { checksView, templateEditorView } from "@/domain/checks-view";
 import { RightPanel } from "./RightPanel";
 import { SectionEditor } from "./SectionEditor";
 
@@ -17,15 +17,19 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
   const template = ctx.templates.find((t) => t.id === story.templateId);
   const promise = ctx.promises.find((p) => p.id === story.promiseId);
   const epic = ctx.epics.find((e) => e.id === story.epicId)!;
-  const toLines = (results: CheckResult[]): MeterLine[] =>
-    results.map((r) => ({ key: r.key, label: r.label, tier: r.tier, passed: r.passed, reason: r.reason, anchor: anchorFor(r.fixTarget, ctx) }));
-  const rightThing = evaluateRightThing(story, ctx);
-  const builtRight = evaluateBuiltRight(story, ctx);
+  const checks = checksView(story, ctx, actorId, new Date());
 
   const sections = template?.sections ?? [];
-  const view = notebookView(story, ctx, sections.filter((x) => x !== CRITERIA_SECTION));
+  const now = new Date();
+  const view = notebookView(story, ctx, sections.filter((x) => x !== CRITERIA_SECTION), actorId, now);
   const criteria = ctx.criteria.filter((c) => c.storyId === story.id);
-  const panel = panelSections(story, ctx);
+  const panel = forThisItem(story, ctx, now, actorId);
+  const expired = ctx.drafts
+    .filter((d) => d.targetType === "story" && d.targetId === story.id && d.status === "expired")
+    .map((d) => {
+      const permission = canTriage(actorId, d, ctx);
+      return { id: d.id, text: d.text, author: name(d.authorId), restoreReason: permission.ok ? null : permission.reason };
+    });
   const events = await storyEvents(story.id);
 
   return (
@@ -33,12 +37,24 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
       <main data-testid="centre" className="overflow-y-auto bg-paper px-10 py-6">
         <div className="flex items-center gap-3 font-mono text-xs uppercase tracking-wide text-muted">
           <span>{story.key} · Story</span>
-          <span data-testid="state-pill" className="rounded border border-line px-2 py-0.5 text-ink">
+          <span
+            data-testid="state-pill"
+            className={`rounded border px-2 py-0.5 ${
+              checks.drift.length
+                ? "border-alert text-alert"
+                : story.state === "ready" || story.state === "exported"
+                  ? "border-agreed bg-agreed-bg text-agreed"
+                  : story.state === "draft"
+                    ? "border-dashed border-line text-ink"
+                    : "border-line text-ink"
+            }`}
+          >
             {STATE_LABELS[story.state]}
+            {checks.drift.length ? " · checks changed" : ""}
           </span>
           <span>Lead {name(story.leadId)}</span>
         </div>
-        <h1 data-testid="story-title" className="mt-2 font-serif text-3xl font-medium">
+        <h1 id="story-title" data-testid="story-title" className="mt-2 font-serif text-3xl font-medium">
           {story.title}
         </h1>
         <p className="mt-2 text-sm text-muted">
@@ -50,10 +66,7 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
             <span className="text-alert">Serves no promise in the {epic.key} PRFAQ</span>
           )}
         </p>
-        <Meters
-          rightThing={{ meter: meterOf(rightThing), lines: toLines(rightThing) }}
-          builtRight={{ meter: meterOf(builtRight), lines: toLines(builtRight) }}
-        />
+        <ChecksView storyId={story.id} view={checks} />
 
         <div className="mt-6 flex gap-1 font-mono text-xs uppercase" role="tablist" aria-label="Notebook view">
           <span role="tab" aria-selected="true" className="rounded bg-ink px-2 py-1 text-paper">
@@ -95,6 +108,12 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
               initialLines={v.lines}
               chips={view.chips}
               sources={view.sources}
+              mode={view.mode}
+              lead={view.lead}
+              suggestionsUnder={view.suggestionsUnder}
+              ownSuggested={view.ownSuggested}
+              topSuggestions={v.topSuggestions}
+              ownRemovals={v.ownRemovals}
             />
           );
         })}
@@ -104,7 +123,10 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
         </p>
       </main>
       <RightPanel
+        storyId={story.id}
         panel={panel}
+        expired={expired}
+        template={template ? templateEditorView(template, ctx, actorId) : null}
         details={[
           ["Lead", name(story.leadId)],
           ["Template", template?.name ?? "none"],
@@ -112,8 +134,7 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
           ["Jira", story.jiraKey ?? "Not exported"],
           ["Signed off", story.signedOffBy ? `${name(story.signedOffBy)}` : "No"],
         ]}
-        activity={events.map((e) => ({ id: e.id, who: name(e.actorId), what: e.type, when: e.createdAt.toISOString(), payload: e.payloadJson }))}
-        actorId={actorId}
+        activity={events.map((e) => ({ id: e.id, who: name(e.actorId), what: e.type, when: e.createdAt.toISOString() }))}
       />
     </>
   );

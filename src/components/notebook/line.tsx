@@ -5,7 +5,8 @@ import { InputRule } from "@tiptap/core";
 import Paragraph from "@tiptap/extension-paragraph";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
 import { createContext, useContext, useState } from "react";
-import type { ChipInfo, LineSource } from "@/domain/notebook-view";
+import type { ChipInfo, LineSource, SuggestionView } from "@/domain/notebook-view";
+import { SuggestionList } from "./SuggestionList";
 
 export const newClientId = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 12)}`;
 
@@ -22,6 +23,10 @@ export interface NotebookContextValue {
   sources: Record<string, LineSource>;
   required: boolean;
   setBlocking: (itemId: string, blocking: boolean) => void;
+  /** Why the viewer can't change a chip directly (suggest mode), or null. */
+  directReason: string | null;
+  suggestionsUnder: Record<string, SuggestionView[]>;
+  ownSuggested: Record<string, string>;
 }
 
 export const NotebookContext = createContext<NotebookContextValue>({
@@ -29,6 +34,9 @@ export const NotebookContext = createContext<NotebookContextValue>({
   sources: {},
   required: false,
   setBlocking: () => {},
+  directReason: null,
+  suggestionsUnder: {},
+  ownSuggested: {},
 });
 
 // Typed at the start of a line, followed by a space.
@@ -76,13 +84,16 @@ function Chip({ itemId, itemType, onTurnBack }: { itemId: string | null; itemTyp
             <button
               type="button"
               role="menuitem"
-              className="px-3 py-1 text-left hover:bg-sunk"
+              disabled={nb.directReason !== null}
+              title={nb.directReason ?? undefined}
+              className="px-3 py-1 text-left hover:bg-sunk disabled:text-muted"
               onClick={() => {
                 setOpen(false);
                 nb.setBlocking(itemId!, !blocking);
               }}
             >
               {blocking ? "Not blocking" : "Mark as blocking"}
+              {nb.directReason && <span className="block text-xs">{nb.directReason}</span>}
             </button>
           )}
           <button
@@ -108,8 +119,16 @@ function LineView({ node, updateAttributes }: ReactNodeViewProps) {
   const source = blockId ? nb.sources[blockId] : undefined;
   const info = itemId ? nb.chips[itemId] : undefined;
   const empty = node.content.size === 0;
-  // Solid when sourced; dashed when a required section's line has no source yet.
-  const edge = source?.sourced ? "border-agreed" : nb.required && !empty ? "border-dashed border-muted" : "border-transparent";
+  const ownSuggestion = blockId ? nb.ownSuggested[blockId] : undefined;
+  const under = blockId ? (nb.suggestionsUnder[blockId] ?? []) : [];
+  // Solid when sourced; dashed when unsourced in a required section, or when it's only a suggestion.
+  const edge = ownSuggestion
+    ? "border-dashed border-muted"
+    : source?.sourced
+      ? "border-agreed"
+      : nb.required && !empty
+        ? "border-dashed border-muted"
+        : "border-transparent";
   return (
     <NodeViewWrapper
       as="div"
@@ -122,10 +141,15 @@ function LineView({ node, updateAttributes }: ReactNodeViewProps) {
         <Chip itemId={itemId} itemType={itemType} onTurnBack={() => updateAttributes({ itemId: null, itemType: null, itemText: null })} />
       )}
       <NodeViewContent<"span"> as="span" className="min-w-[2ch] flex-1 whitespace-pre-wrap" />
-      {(source?.labels.length || info?.status) && (
-        <span contentEditable={false} className="shrink-0 select-none font-mono text-[11px] text-muted">
-          {[...(source?.labels ?? []), info?.status].filter(Boolean).join(" · ")}
+      {(source?.labels.length || info?.status || ownSuggestion) && (
+        <span contentEditable={false} data-testid={ownSuggestion ? "own-suggestion" : undefined} className="shrink-0 select-none font-mono text-[11px] text-muted">
+          {[ownSuggestion, ...(source?.labels ?? []), info?.status].filter(Boolean).join(" · ")}
         </span>
+      )}
+      {under.length > 0 && (
+        <div contentEditable={false} className="w-full select-none">
+          <SuggestionList suggestions={under} />
+        </div>
       )}
     </NodeViewWrapper>
   );

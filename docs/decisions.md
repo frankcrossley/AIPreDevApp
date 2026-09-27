@@ -112,12 +112,66 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Decision.** A new decision asks the story lead, its author and the epic's tech lead. The stance controls in bolt 4 let people change the list.
 **Consequence.** New decisions start small; the lead widens them when the decision touches finance or sales.
 
-## ADR-023 · Notebook edits land directly; drafts come from outside the notebook
-**Context.** `docs/domain.md` calls a Draft "anything added outside a session", yet 02-notebook has people typing items straight into the notebook, and 03-right-panel has drafts from people and sources waiting for the lead.
-**Decision.** For the prototype, anyone "viewing as" a person can type into a story's notebook, and it lands directly as unagreed Blocks and Items. Agreed content stays protected by the reopen rule (ADR-015), so a direct edit can never change agreed content silently. Drafts are contributions that arrive from outside the notebook: people's suggestions from the tray, discovery sources and ingestion (bolts 3 and 7). Rule 6 applies to those.
-**Consequence.** Open question for the product owner: should notebook edits by people who aren't the lead, outside a session, become drafts instead? If so, bolt 3 routes them through the draft queue.
+## ADR-023 · Where notebook edits go
+**Context.** `docs/domain.md` calls a Draft "anything added outside a session", yet 02-notebook has people typing straight into the notebook.
+**Decision.** Amended by ADR-025 after the product owner's answer: only the story's lead writes to the notebook directly. Everyone else's edits are suggestions, which are drafts. Drafts also arrive from outside the notebook (people's notes, discovery sources, ingestion). Rule 6 applies to all of them.
+**Consequence.** Nothing lands in a story without its lead's say-so, and agreed content is still protected by the reopen rule (ADR-015).
 
 ## ADR-024 · New stories from "Turn into", and backlog labels
 **Context.** "Turn into → Story" needs a lead, template and key, and the backlog needs one label per state.
 **Decision.** `newDraftStory` makes a `draft` story in the same epic. Whoever creates it leads it (so they triage it), it uses the template named `story`, its key is one past the highest number in use with the epic's prefix, and its id is the key in lower case. Its first line quotes the selection and cites the line it came from. In the backlog, exported stories are labelled Ready, with their sprint.
 **Consequence.** The link from new story to source line survives as a citation. Two people creating stories at the same moment could clash on a key; the database's unique key refuses the second, and they retry.
+
+## ADR-025 · Suggest mode: the lead edits, everyone else suggests
+**Context.** The product owner wants edits from people other than the lead to work like Word's suggestions: proposed in place, applied only when approved.
+**Decision.** `editsDirectly(person, story)` is true only for the story's lead (bolt 8 adds the scribe in session mode). Anyone else's section save goes through `toSuggestions()`, which compares their lines with the real notebook and turns the difference into Drafts of kind `suggestion`: `add` (a new line after a given line), `edit`, `remove` or `chip`. Each person's pending suggestions are reconciled on every save, so they keep their ids and expiry while the person keeps typing, and anything they take back is `withdrawn`. The author sees their suggestions applied in their own editor, dashed and labelled; the lead and others see them dashed under the line they're about, and in the right panel, with Accept and Reject. Accepting runs the same diff as a direct edit, credited to the author, and goes through the reopen warning when it touches agreed content. Answering a hat note as a non-lead is also a suggestion, and accepting it closes the note. Suggestions expire like any draft.
+Suggestions are Drafts rather than their own entity because they need exactly what drafts have: an author, an expiry, lead-only triage, and an archive.
+**Consequence.** The 02-notebook scenario "Editing agreed content reopens it" is updated: Dan's edit is a suggestion, and Priya sees the warning when she accepts it. Marking a question blocking and dismissing hat notes are lead-only.
+
+## ADR-026 · Deleting a line others cite
+**Context.** Other lines, criteria and items cite lines (Citations to blocks). Deleting a cited line would leave them pointing at nothing.
+**Decision.** When a save deletes a line that something cites, the server answers "needs confirmation" with what depends on it. On confirmation, the citations to it are removed in the same transaction, and each dependent gets a `talking_point` item ("Realign: … lost its source …") owned by whoever wrote it, linked to it where it's a line. Their sourcing checks then fail until someone re-sources them.
+**Consequence.** Impacts are visible before anyone commits to them, and the realignment is tracked where the team already looks.
+
+## ADR-027 · Prefixes are typed, and can be undone
+**Context.** `risk:` or `decision:` can be ordinary words at the start of a line.
+**Decision.** Chips come only from the editor: a prefix typed at the start of a line, or "Turn into". Saved or pasted text is never turned into a chip on the server. Backspace straight after the conversion undoes it (Tiptap's `undoInputRule`), leaving the prefix as plain text.
+**Consequence.** Like Word's autocorrect, it's easy to escape and never surprising.
+
+## ADR-028 · Triage and panel rules
+**Context.** The right panel and triage need rules that the acceptance files leave open.
+**Decision.**
+- **One plan for every notebook change.** Saving, accepting, merging, answering a hat note and marking a question blocking all go through `planChange()`, so the reopen warning (ADR-015) and the dependent check (ADR-026) always apply, and the change is one transaction.
+- **Decisions needed** is exactly what `whatBlocksReady` returns for the story: the panel and the meters can't disagree. Other open items and hat notes are talking points. People's notes and suggestions are talking points; quotes from sources and themes already cited are From discovery.
+- **Where accepted notes land.** Quotes go under the first section with a citation to their excerpt; people's notes go under "What we think". Accepted lines are credited to their author; merges to the lead. Merging into an agreed line is offered but disabled, so the lead accepts it as a new line instead. Suggestions can't be merged or moved.
+- **Move** works the expiry out again for the new target, and takes the Product hat's suggestion (marks it accepted).
+- **Epic drafts** are triaged by the epic owner; accepting them waits for the PRFAQ editor (bolt 5).
+- **Hat notes.** An answer is a new line under the line the note is about, and closes the note; a QA note can be added to the page as a question. Only the lead dismisses, and dismissals are logged with hat and kind as a product metric. Hat notes on drafts give hints, not answers.
+- **Suggestions** capture adds, edits, removals and chip changes, not reordering. An edit suggestion remembers the line's text, and is refused as stale if the lead changed the line since.
+**Consequence.** The rules are pure functions in `src/domain/panel.ts`, `triage.ts` and `suggestions.ts`, with the permissions (`canTriageNow`, `canWithdraw`, `canPutToSession`, `canDismiss`) tested there.
+
+## ADR-029 · The Scrum Master's expiry pass and the manual agenda queue
+**Context.** Drafts must leave the panel when they expire, and people want to put things to the next session from the panel.
+**Decision.** The expiry pass (`expireDrafts`) runs deterministically whenever the workspace loads, archiving overdue drafts and logging `draft.expired`. Anyone can put an item or hat note that belongs to the story on the next planned session; it's stored in `Session.agenda`. Bolt 8 lists those first, then the computed agenda (ADR-011). The panel summary groups blockers into decisions, answers and other checks, with epic checks as a separate sentence, and counts drafts expiring before the next session (or within three days if none is planned).
+**Consequence.** No background job is needed for the prototype. A real deployment would run the same function on a schedule.
+
+## ADR-030 · Stories reach Ready through sign-off, not by agreeing on their own
+**Context.** The lifecycle has an `agreed` state between refinement and Ready. If a story moved to `agreed` by itself once its stances were in, any later answer or line would reopen it straight away.
+**Decision.** A story doesn't move to `agreed` automatically. The lead's sign-off takes it from `in_refinement` to `ready`, passing through `agreed` with that guard (ADR-015). Sign-off has two entry points, and the API one needs the viewing-as person named explicitly (no default person): the server action the UI uses, and `POST /api/stories/:key/sign-off` for the API. Both call the lifecycle's `signOffStory` and nothing else changes state; reopening happens only through `reopenWrites` inside notebook changes (ADR-028). A static test scans every route and server action and fails the build if one touches story state without going through `src/server/lifecycle.ts`.
+**Consequence.** The team can keep answering and sourcing until the lead signs off. `agreed` stays available for bolt 8's session flow.
+
+## ADR-031 · Stances, who's asked, and answering questions
+**Context.** "Only people take stances", and bolt 4 adds the controls.
+**Decision.** A person records their own stance (agree, concern or object) on a decision they were asked about, in its current round; an objection needs a reason. The lead changes who's asked, choosing from the epic's members; someone with an unresolved objection stays asked until they resolve it. Neither stances nor who's asked can change on a Ready or exported story: edit it to reopen it first. Dropping someone who was already asked, once anyone has taken a stance, starts a new round so everyone restates; otherwise a lead could pass "Stances complete" by removing whoever hasn't answered. These rules are in `src/domain/stances.ts`. Answering an open question (blocking or not) is lead-only: the answer goes in as a new line under the question (optionally as a decision, which then asks for its own stances) and the question is resolved. Everyone else suggests an answer through the notebook.
+**Consequence.** The demo path works entirely in the interface: the lead answers, the tech lead agrees, the lead answers the Architect, and the lead signs off.
+
+## ADR-032 · Template checks and drift
+**Context.** "Floor checks can't be removed; team checks are yours", but someone has to own the team's checks.
+**Decision.** Product, the tech lead or the head of product can add team checks to a template, from Details → Edit checks. Removing one makes Ready easier, so a story's lead can't use it to get their own story through: only the tech lead or the head of product can remove a team check (`canChangeTeamChecks`). Floor checks are listed, ticked and locked. Changes are logged. A Ready or exported story whose checks now fail (because the template or the epic changed) shows "Ready · checks changed" and lists them; it doesn't revert on its own (ADR-015).
+Template changes apply at once to every story on the template (there is no per-story snapshot) and are logged against the template. On check lines, the short subject after each label ("downgrade mid-cycle", "Dan") comes from fixed word rules (`shortSubject`), not a model (ADR-006). A failing line links to its fix on the notebook; epic-level fixes (PRFAQ, read-backs, FAQ, promises) link to the epic at `/w/<epicKey>`; anything else falls back to the story title.
+**Consequence.** BILL-152 in the seed shows drift, which is honest about its data.
+
+## ADR-033 · Answers cite what they answer
+**Context.** Answering the Architect adds a line under "What we think", a required section, and an unsourced line there would fail "Claims sourced": answering one check would break another.
+**Decision.** An answer, whether the lead's or an accepted suggestion, cites the source excerpts its hat note was based on (for the Architect's challenge, ADR-022), and nothing else: a question, or the line being challenged, is not evidence for a new claim. Which question or note it answers is kept in the event log. An answer with nothing to cite is unsourced, and "Claims sourced" says so until someone sources it.
+**Consequence.** Sourcing stays honest: closing a challenge based on a source keeps claims sourced, and anything else has to be sourced like any other line.

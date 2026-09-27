@@ -19,11 +19,11 @@ const whatWeThink = [
 ];
 
 describe("saving a section", () => {
-  it("saves a new question line as Marcus, with an event", async () => {
+  it("the lead's new question line saves directly, with an event", async () => {
     const r = await saveSection(env.db, {
       storyId: "bill-150",
       section: "Edge cases",
-      actorId: "marcus",
+      actorId: "priya",
       confirmReopen: false,
       now: NOW,
       lines: [
@@ -33,18 +33,18 @@ describe("saving a section", () => {
       ],
     });
     expect(r).toEqual({ status: "saved", reopened: false });
-    expect(await env.db.block.findUniqueOrThrow({ where: { id: "blk-new" } })).toMatchObject({ authorId: "marcus", order: 3 });
-    expect(await env.db.item.findUniqueOrThrow({ where: { id: "itm-new" } })).toMatchObject({ type: "question", ownerId: "marcus" });
+    expect(await env.db.block.findUniqueOrThrow({ where: { id: "blk-new" } })).toMatchObject({ authorId: "priya", order: 3 });
+    expect(await env.db.item.findUniqueOrThrow({ where: { id: "itm-new" } })).toMatchObject({ type: "question", ownerId: "priya" });
     expect((await env.db.event.findMany()).map((e) => [e.type, e.actorId])).toEqual([
-      ["block.created", "marcus"],
-      ["item.created", "marcus"],
+      ["block.created", "priya"],
+      ["item.created", "priya"],
     ]);
   });
 
   it("holds an edit to the agreed decision, then reopens it on confirmation", async () => {
     await env.db.story.update({ where: { id: "bill-150" }, data: { signedOffBy: "priya", signedOffAt: NOW } });
     const edited = whatWeThink.map((l) => (l.blockId === "b4" ? { ...l, text: "Upgrades apply immediately and are charged by the day." } : l));
-    const input = { storyId: "bill-150", section: "What we think", lines: edited, actorId: "dan", now: NOW };
+    const input = { storyId: "bill-150", section: "What we think", lines: edited, actorId: "priya", now: NOW };
 
     const held = await saveSection(env.db, { ...input, confirmReopen: false });
     expect(held).toEqual({ status: "needs_confirmation", warning: "Priya, Sam and Marcus agreed this. Saving reopens it for all three.", personIds: ["priya", "sam", "marcus"] });
@@ -79,7 +79,7 @@ describe("saving a section", () => {
       { blockId: "b7", itemId: null, itemType: null, text: "A customer changes plan twice in one month. Probably fine, same rule applies." },
       { blockId: "blk-late", itemId: null, itemType: null, text: "Annual plans too." },
     ];
-    const input = { storyId: "bill-150", section: "Edge cases", lines: edge, actorId: "sam", now: NOW };
+    const input = { storyId: "bill-150", section: "Edge cases", lines: edge, actorId: "priya", now: NOW };
     expect(await saveSection(env.db, { ...input, confirmReopen: false })).toMatchObject({ status: "needs_confirmation", personIds: ["priya", "sam", "marcus"] });
     expect(await env.db.block.findUnique({ where: { id: "blk-late" } })).toBeNull();
 
@@ -96,7 +96,7 @@ describe("saving a section", () => {
     sqlite.exec("CREATE TRIGGER no_blocks BEFORE INSERT ON Block BEGIN SELECT RAISE(ABORT, 'refused'); END;");
     sqlite.close();
     const lines = [{ blockId: "blk-x", itemId: null, itemType: null, text: "A new line" }];
-    await expect(saveSection(env.db, { storyId: "bill-150", section: "Edge cases", lines, actorId: "sam", confirmReopen: true, now: NOW })).rejects.toThrow();
+    await expect(saveSection(env.db, { storyId: "bill-150", section: "Edge cases", lines, actorId: "priya", confirmReopen: true, now: NOW })).rejects.toThrow();
     expect((await env.db.item.findUniqueOrThrow({ where: { id: "it-d1" } })).stanceRound).toBe(1);
     expect(await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).toMatchObject({ state: "ready", signedOffBy: "priya" });
   });

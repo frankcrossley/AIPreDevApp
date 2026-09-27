@@ -46,7 +46,8 @@ export type NotebookOp =
   | { op: "createItem"; item: Item }
   | { op: "updateItem"; id: string; text: string }
   | { op: "archiveItem"; id: string }
-  | { op: "restoreItem"; id: string };
+  | { op: "restoreItem"; id: string }
+  | { op: "resolveItem"; id: string };
 
 /** Ids the editor may assign to new lines and chips. */
 const CLIENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -105,10 +106,10 @@ export function diffSection({ ctx, storyId, section, lines, actorId, now, newId 
 
   kept.forEach((line, index) => {
     const order = index + 1;
-    // A prefix typed or pasted without the editor converting it still becomes a chip.
-    const parsed = line.itemType ? null : parsePrefix(line.text);
-    const itemType = line.itemType ?? parsed?.type ?? null;
-    const text = parsed?.text ?? line.text;
+    // Chips come only from the editor (a typed prefix, "Turn into"). Saved text that starts
+    // with "risk:" stays plain text, so a prefix can always be escaped (ADR-027).
+    const itemType = line.itemType;
+    const text = line.text;
 
     let blockId = line.blockId;
     let previous: Block | undefined;
@@ -179,6 +180,7 @@ export function applyOps(ctx: DomainSnapshot, ops: NotebookOp[], now: Date): Dom
     if (o.op === "updateItem") items = items.map((i) => (i.id === o.id ? { ...i, text: o.text } : i));
     if (o.op === "archiveItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "archived" as const } : i));
     if (o.op === "restoreItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "open" as const } : i));
+    if (o.op === "resolveItem") items = items.map((i) => (i.id === o.id ? { ...i, status: "resolved" as const } : i));
   }
   return { ...ctx, blocks, items };
 }
@@ -221,7 +223,7 @@ export function editedBlockIds(ops: NotebookOp[], ctx: DomainSnapshot): string[]
   for (const o of ops) {
     if (o.op === "updateBlock" && o.text !== undefined) ids.push(o.id);
     if (o.op === "deleteBlock") ids.push(o.id);
-    if (o.op === "updateItem" || o.op === "archiveItem" || o.op === "restoreItem") {
+    if (o.op === "updateItem" || o.op === "archiveItem" || o.op === "restoreItem" || o.op === "resolveItem") {
       const blockId = ctx.items.find((i) => i.id === o.id)?.blockId;
       if (blockId) ids.push(blockId);
     }
@@ -231,12 +233,14 @@ export function editedBlockIds(ops: NotebookOp[], ctx: DomainSnapshot): string[]
 
 const COUNT_WORDS = ["", "", "both", "all three", "all four", "all five", "all six", "all seven", "all eight", "all nine", "all ten"];
 
+export const listNames = (names: string[]) =>
+  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
 /** "Priya, Sam and Dan agreed this. Saving reopens it for all three." */
-export function reopenWarning(names: string[]): string {
+export function reopenWarning(names: string[], verb: "Saving" | "Accepting" = "Saving"): string {
   if (!names.length) return "";
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const who = names.length === 1 ? "them" : (COUNT_WORDS[names.length] ?? `all ${names.length}`);
-  return `${list} agreed this. Saving reopens it for ${who}.`;
+  return `${listNames(names)} agreed this. ${verb} reopens it for ${who}.`;
 }
 
 const AGREED_STATES = new Set(["agreed", "ready", "exported"]);
@@ -254,7 +258,12 @@ export interface ReopenImpact {
  * Whether a set of notebook ops edits agreed content, who agreed it, and the warning to show.
  * Once a story is agreed, ready or exported, any change at all reopens it, including new lines.
  */
-export function reopenImpact(ops: NotebookOp[], story: Story, ctx: DomainSnapshot): ReopenImpact {
+export function reopenImpact(
+  ops: NotebookOp[],
+  story: Story,
+  ctx: DomainSnapshot,
+  verb: "Saving" | "Accepting" = "Saving",
+): ReopenImpact {
   const name = (id: string) => ctx.people.find((p) => p.id === id)?.name ?? id;
   if (AGREED_STATES.has(story.state)) {
     const personIds = ops.length ? agreedBy([], story.id, ctx) : [];
@@ -265,13 +274,13 @@ export function reopenImpact(ops: NotebookOp[], story: Story, ctx: DomainSnapsho
       warning: !ops.length
         ? ""
         : personIds.length
-          ? reopenWarning(personIds.map(name))
-          : `${story.key} is ${STATE_LABELS[story.state]}. Saving reopens it.`,
+          ? reopenWarning(personIds.map(name), verb)
+          : `${story.key} is ${STATE_LABELS[story.state]}. ${verb} reopens it.`,
     };
   }
   const editedIds = editedBlockIds(ops, ctx);
   const personIds = agreedBy(editedIds, story.id, ctx);
-  return { reopen: personIds.length > 0, editedIds, personIds, warning: reopenWarning(personIds.map(name)) };
+  return { reopen: personIds.length > 0, editedIds, personIds, warning: reopenWarning(personIds.map(name), verb) };
 }
 
 /**
@@ -327,4 +336,174 @@ export function newDraftStory(input: {
     block,
     citation: { id: `cit-block-${block.id}-${source.id}`, fromType: "block", fromId: block.id, toType: "block", toId: source.id },
   };
+}
+
+// ---------- deleting a line others depend on (ADR-026) ----------
+
+export interface Dependent {
+  type: "block" | "criterion" | "item";
+  id: string;
+  storyId: string;
+  text: string;
+  /** Who is asked to realign it. */
+  ownerId: string;
+}
+
+/** Lines, criteria and items that cite a block. */
+export function dependentsOf(blockId: string, ctx: DomainSnapshot): Dependent[] {
+  const out: Dependent[] = [];
+  for (const c of ctx.citations.filter((x) => x.toType === "block" && x.toId === blockId)) {
+    if (c.fromType === "block") {
+      const b = ctx.blocks.find((x) => x.id === c.fromId);
+      if (b && b.parentType === "story") out.push({ type: "block", id: b.id, storyId: b.parentId, text: b.text, ownerId: b.authorId });
+    } else if (c.fromType === "criterion") {
+      const cr = ctx.criteria.find((x) => x.id === c.fromId);
+      const lead = ctx.stories.find((s) => s.id === cr?.storyId)?.leadId;
+      if (cr && lead) out.push({ type: "criterion", id: cr.id, storyId: cr.storyId, text: `Given ${cr.given}, then ${cr.then}`, ownerId: lead });
+    } else if (c.fromType === "item") {
+      const it = ctx.items.find((x) => x.id === c.fromId);
+      if (it && isLiveItem(it) && it.parentType === "story") out.push({ type: "item", id: it.id, storyId: it.parentId, text: it.text, ownerId: it.ownerId ?? "" });
+    }
+  }
+  return out;
+}
+
+export interface DeleteImpact {
+  /** Deleted blocks that others cite, with what cites them. */
+  affected: { blockId: string; text: string; dependents: Dependent[] }[];
+  warning: string;
+}
+
+const clip = (t: string, n = 60) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+
+/** What a set of ops would leave unsourced, and the warning that says so before anyone confirms. */
+export function deleteImpact(ops: NotebookOp[], ctx: DomainSnapshot): DeleteImpact {
+  const affected = ops
+    .filter((o): o is { op: "deleteBlock"; id: string } => o.op === "deleteBlock")
+    .map((o) => ({ blockId: o.id, text: ctx.blocks.find((b) => b.id === o.id)?.text ?? o.id, dependents: dependentsOf(o.id, ctx) }))
+    .filter((a) => a.dependents.length > 0);
+  const warning = affected
+    .map((a) => {
+      const n = a.dependents.length;
+      return `${n} ${n === 1 ? "thing cites" : "things cite"} "${clip(a.text)}": ${a.dependents.map((d) => `"${clip(d.text, 40)}"`).join(", ")}. Deleting it leaves ${n === 1 ? "it" : "them"} unsourced, and each gets a talking point to realign.`;
+    })
+    .join(" ");
+  return { affected, warning };
+}
+
+/** The realignment talking points a confirmed delete creates, one per dependent. */
+export function realignmentItems(impact: DeleteImpact, newId: () => string): { item: Item; citation: Citation | null }[] {
+  return impact.affected.flatMap((a) =>
+    a.dependents.map((d) => {
+      const id = newId();
+      const item: Item = {
+        id,
+        parentType: "story",
+        parentId: d.storyId,
+        blockId: null,
+        type: "talking_point",
+        text: `Realign: "${clip(d.text)}" lost its source "${clip(a.text)}"`,
+        status: "open",
+        ownerId: d.ownerId || null,
+        blocking: false,
+        requiredStanceIds: [],
+        stanceRound: 1,
+      };
+      // Points the talking point at the thing to realign, so the panel can link to it.
+      const citation: Citation | null =
+        d.type === "block" ? { id: `cit-item-${id}-${d.id}`, fromType: "item", fromId: id, toType: "block", toId: d.id } : null;
+      return { item, citation };
+    }),
+  );
+}
+
+/** A section's current lines, as the editor would send them. */
+export function sectionLines(storyId: string, section: string, ctx: DomainSnapshot): SectionLine[] {
+  return ctx.blocks
+    .filter((b) => b.parentType === "story" && b.parentId === storyId && b.section === section)
+    .sort((a, b) => a.order - b.order)
+    .map((b) => {
+      const item = ctx.items.find((i) => i.blockId === b.id && isLiveItem(i));
+      return {
+        blockId: b.id,
+        itemId: item?.id ?? null,
+        itemType: item?.type ?? null,
+        text: b.text,
+        itemText: item && item.text !== b.text ? item.text : undefined,
+      };
+    });
+}
+
+// ---------- one plan for every notebook change ----------
+
+export interface ChangePlan {
+  ops: NotebookOp[];
+  reopen: ReopenImpact;
+  deletes: DeleteImpact;
+  /** True when a person must confirm first: the change reopens agreed content or orphans citations. */
+  needsConfirmation: boolean;
+  warning: string;
+}
+
+/**
+ * Every path that changes a story's notebook (saving, accepting, merging, answering, blocking)
+ * goes through this, so the reopen rule (ADR-015) and the dependent check (ADR-026) always apply.
+ */
+export function planChange(ops: NotebookOp[], story: Story, ctx: DomainSnapshot, verb: "Saving" | "Accepting" = "Saving"): ChangePlan {
+  const reopen = reopenImpact(ops, story, ctx, verb);
+  const deletes = deleteImpact(ops, ctx);
+  return {
+    ops,
+    reopen,
+    deletes,
+    needsConfirmation: reopen.reopen || deletes.affected.length > 0,
+    warning: [reopen.reopen ? reopen.warning : "", deletes.warning].filter(Boolean).join(" "),
+  };
+}
+
+// ---------- answering a question ----------
+
+/**
+ * Answers an open question: the answer goes in as a new line under it (optionally as a decision,
+ * which then needs its own stances), and the question is resolved. The ops go through planChange
+ * like any other edit.
+ */
+export function answerQuestion(input: {
+  ctx: DomainSnapshot;
+  itemId: string;
+  text: string;
+  asDecision: boolean;
+  actorId: string;
+  now: Date;
+  newId: () => string;
+}): { ops: NotebookOp[]; story: Story; answerBlockId: string } {
+  const { ctx, itemId, actorId, now, newId } = input;
+  const text = input.text.trim();
+  if (!text) throw new Error("Write the answer first");
+  const question = ctx.items.find((i) => i.id === itemId);
+  if (!question || question.type !== "question" || !isLiveItem(question)) throw new Error("That isn't an open question");
+  if (question.status !== "open") throw new Error("That question is already answered");
+  const block = ctx.blocks.find((b) => b.id === question.blockId);
+  const story = ctx.stories.find((s) => s.id === question.parentId);
+  if (!block || !story || question.parentType !== "story") throw new Error("That question isn't on a story's notebook");
+  if (actorId !== story.leadId) {
+    throw new Error(`${ctx.people.find((p) => p.id === story.leadId)?.name ?? story.leadId} is the lead. Suggest an answer in the notebook instead.`);
+  }
+  const lines = sectionLines(story.id, block.section, ctx);
+  const at = lines.findIndex((l) => l.blockId === block.id);
+  const answerId = newId();
+  const next = [...lines.slice(0, at + 1), { blockId: answerId, itemId: null, itemType: input.asDecision ? "decision" : null, text }, ...lines.slice(at + 1)];
+  const ops = diffSection({ ctx, storyId: story.id, section: block.section, lines: next, actorId, now, newId });
+  return { ops: [...ops, { op: "resolveItem", id: question.id }], story, answerBlockId: answerId };
+}
+
+/**
+ * An answer cites the sources its challenge was based on, and nothing else: a question or the
+ * line being challenged is not evidence for a new claim. Where it answers is kept in the event log.
+ * An answer with nothing to cite is unsourced, and "Claims sourced" says so (ADR-033).
+ */
+export function answerCitations(answerBlockId: string, refs: string[], ctx: DomainSnapshot): Citation[] {
+  return refs
+    .filter((r) => ctx.excerpts.some((e) => e.id === r))
+    .map((r): Citation => ({ id: `cit-block-${answerBlockId}-${r}`, fromType: "block", fromId: answerBlockId, toType: "excerpt", toId: r }));
 }

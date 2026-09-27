@@ -219,12 +219,14 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
   const itemIds = new Set(items.map((i) => i.id));
   const criterionIds = new Set(criteria.map((c) => c.id));
   const storyIds = new Set(stories.map((s) => s.id));
+  const draftIds = new Set<string>((seed.drafts ?? []).map((d: any) => d.id));
   const hatTargetType = (id: string): HatNote["targetType"] => {
     if (blockIds.has(id)) return "block";
     if (itemIds.has(id)) return "item";
     if (criterionIds.has(id)) return "criterion";
     if (storyIds.has(id)) return "story";
     if (epicIds.has(id)) return "epic";
+    if (draftIds.has(id)) return "draft";
     throw new Error(`Hat note targets unknown id ${id}`);
   };
   const hatNotes: HatNote[] = (seed.hatNotes ?? []).map((h: any) => ({
@@ -236,6 +238,7 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
     text: h.text,
     refs: h.refs ?? [],
     status: h.status ?? "open",
+    moveToId: h.moveToId ?? null,
   }));
 
   const sessions: Session[] = (seed.sessions ?? []).map((s: any) => ({
@@ -270,6 +273,14 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
       triagedBy: d.triagedBy ?? null,
       triagedAt: d.triagedBy ? createdAt : null,
       resultBlockId: d.acceptedAsBlockId ?? null,
+      kind: d.kind ?? "note",
+      section: d.section ?? null,
+      op: d.op ?? null,
+      blockId: d.blockId ?? null,
+      afterBlockId: d.afterBlockId ?? null,
+      itemType: d.itemType ?? null,
+      hatNoteId: d.hatNoteId ?? null,
+      baseText: d.baseText ?? null,
     };
   });
 

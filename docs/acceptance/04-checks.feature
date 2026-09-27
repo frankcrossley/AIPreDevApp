@@ -9,7 +9,7 @@ Feature: Right thing and Built right
 
   Scenario: Every failing line links to its fix
     When I open the checks
-    And I click "No blocking questions · downgrades"
+    And I click "No blocking questions · downgrade mid-cycle"
     Then the notebook scrolls to that question and highlights it
 
   Scenario: Floor checks can't be removed

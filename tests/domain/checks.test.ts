@@ -73,7 +73,7 @@ describe("Built right floor checks", () => {
   it("no_unresolved_conflicts fails on an open conflict hat note", () => {
     const ctx = seeded();
     expect(result(built(ctx), "no_unresolved_conflicts").passed).toBe(true);
-    ctx.hatNotes.push({ id: "hnx", hat: "arch", targetType: "block", targetId: "b5", kind: "conflict", text: "Conflicts with ADR-022?", refs: [], status: "open" });
+    ctx.hatNotes.push({ id: "hnx", hat: "arch", targetType: "block", targetId: "b5", kind: "conflict", text: "Conflicts with ADR-022?", refs: [], status: "open", moveToId: null });
     const r = result(built(ctx), "no_unresolved_conflicts");
     expect(r.passed).toBe(false);
     expect(r.fixTarget).toEqual({ type: "hatNote", id: "hnx" });
@@ -189,7 +189,7 @@ describe("Right thing floor checks", () => {
 describe("team checks from the Story template", () => {
   it("within_promise_scope fails on an open Product-hat note", () => {
     const ctx = seeded();
-    ctx.hatNotes.push({ id: "pm1", hat: "pm", targetType: "story", targetId: "bill-150", kind: "gap", text: "Is proration explanation in the PRFAQ?", refs: [], status: "open" });
+    ctx.hatNotes.push({ id: "pm1", hat: "pm", targetType: "story", targetId: "bill-150", kind: "gap", text: "Is proration explanation in the PRFAQ?", refs: [], status: "open", moveToId: null });
     expect(result(right(ctx), "within_promise_scope").passed).toBe(false);
   });
 

@@ -2,7 +2,11 @@
 // each line is sourced from. Computed here so the UI only displays it.
 
 import { isLiveItem, latestStances } from "./checks";
-import type { DomainSnapshot, ItemType, Story } from "./types";
+import { expiryLabel } from "./drafts";
+import { sectionLines } from "./notebook";
+import { applySuggestions, describeSuggestion, editsDirectly, pendingSuggestions } from "./suggestions";
+import { canTriage } from "./triage";
+import type { DomainSnapshot, Draft, ItemType, Story } from "./types";
 
 export interface EditorLine {
   blockId: string | null;
@@ -28,8 +32,33 @@ export interface LineSource {
   sourced: boolean;
 }
 
+/** Someone else's suggestion, shown under the line it's about (ADR-025). */
+export interface SuggestionView {
+  id: string;
+  author: string;
+  description: string;
+  expiry: string;
+  /** Why the viewer can't accept or reject it, or null when they can. */
+  triageReason: string | null;
+}
+
 export interface NotebookView {
-  sections: { name: string; required: boolean; lines: EditorLine[] }[];
+  /** `direct` for the lead; `suggesting` for everyone else. */
+  mode: "direct" | "suggesting";
+  lead: string;
+  sections: {
+    name: string;
+    required: boolean;
+    lines: EditorLine[];
+    /** Suggested additions at the top of the section. */
+    topSuggestions: SuggestionView[];
+    /** The viewer's own suggested removals, which their editor no longer shows. */
+    ownRemovals: { id: string; text: string }[];
+  }[];
+  /** Other people's suggestions, keyed by the line they sit under. */
+  suggestionsUnder: Record<string, SuggestionView[]>;
+  /** The viewer's own suggested lines: drawn dashed with this label. */
+  ownSuggested: Record<string, string>;
   chips: Record<string, ChipInfo>;
   sources: Record<string, LineSource>;
   /** Criteria a hat proposed that no person has confirmed yet: drawn dashed. */
@@ -46,7 +75,7 @@ export function sourceLabel(excerptId: string, ctx: DomainSnapshot): string {
   return excerpt.kind === "theme" ? kind : `${kind}, ${excerpt.locator}`;
 }
 
-export function notebookView(story: Story, ctx: DomainSnapshot, sections: string[]): NotebookView {
+export function notebookView(story: Story, ctx: DomainSnapshot, sections: string[], actorId: string = story.leadId, now: Date = new Date()): NotebookView {
   const template = ctx.templates.find((t) => t.id === story.templateId);
   const required = new Set(template?.requiredSections ?? []);
   const blocks = ctx.blocks.filter((b) => b.parentType === "story" && b.parentId === story.id);
@@ -78,20 +107,50 @@ export function notebookView(story: Story, ctx: DomainSnapshot, sections: string
     };
   }
 
+  const mode = editsDirectly(actorId, story) ? "direct" : "suggesting";
+  const name = (id: string | null) => ctx.people.find((p) => p.id === id)?.name ?? id ?? "Someone";
+  const suggestions = pendingSuggestions(ctx, story.id).filter((d) => d.expiresAt.getTime() > now.getTime());
+  const mine = suggestions.filter((d) => d.authorId === actorId && mode === "suggesting");
+  const others = suggestions.filter((d) => !mine.includes(d));
+  const toView = (d: Draft): SuggestionView => {
+    const permission = canTriage(actorId, d, ctx);
+    return { id: d.id, author: name(d.authorId), description: describeSuggestion(d), expiry: expiryLabel(d, now), triageReason: permission.ok ? null : permission.reason };
+  };
+
+  const suggestionsUnder: Record<string, SuggestionView[]> = {};
+  for (const d of others) {
+    const under = d.op === "add" ? d.afterBlockId : d.blockId;
+    if (under) (suggestionsUnder[under] ??= []).push(toView(d));
+  }
+  const ownSuggested: Record<string, string> = {};
+  for (const d of mine) {
+    if (d.op !== "remove" && d.blockId) ownSuggested[d.blockId] = `Your suggestion · ${expiryLabel(d, now)}`;
+  }
+
   return {
+    mode,
+    lead: name(story.leadId),
     chips,
     sources,
+    suggestionsUnder,
+    ownSuggested,
     unconfirmedCriteria: ctx.criteria.filter((c) => c.storyId === story.id && c.origin === "hat" && !c.confirmedBy).map((c) => c.id),
-    sections: sections.map((name) => ({
-      name,
-      required: required.has(name),
-      lines: blocks
-        .filter((b) => b.section === name)
-        .sort((a, b) => a.order - b.order)
-        .map((b) => {
-          const item = items.find((i) => i.blockId === b.id);
-          return { blockId: b.id, itemId: item?.id ?? null, itemType: item?.type ?? null, text: b.text, itemText: item && item.text !== b.text ? item.text : null };
-        }),
-    })),
+    sections: sections.map((section) => {
+      const own = mine.filter((d) => d.section === section);
+      const lines = applySuggestions(sectionLines(story.id, section, ctx), own, ctx).map((l) => ({
+        blockId: l.blockId,
+        itemId: l.itemId,
+        itemType: l.itemType,
+        text: l.text,
+        itemText: l.itemText ?? null,
+      }));
+      return {
+        name: section,
+        required: required.has(section),
+        lines,
+        topSuggestions: others.filter((d) => d.section === section && d.op === "add" && !d.afterBlockId).map(toView),
+        ownRemovals: own.filter((d) => d.op === "remove").map((d) => ({ id: d.id, text: d.text })),
+      };
+    }),
   };
 }

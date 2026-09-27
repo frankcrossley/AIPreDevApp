@@ -1,6 +1,6 @@
 // 01-workspace.feature
 import { expect, test } from "@playwright/test";
-import { db, newLine, openStory, resetDb, waitSaved } from "./helpers";
+import { db, newLine, openStory, resetDb, section } from "./helpers";
 
 test.beforeEach(async () => {
   await resetDb();
@@ -17,7 +17,7 @@ test("Selecting a story keeps the user on the same screen", async ({ page }) => 
     await expect(page.getByTestId(`section-${name}`)).toBeVisible();
   }
   await expect(page.locator("#block-b1")).toContainText("Acme upgraded on the 20th");
-  await expect(page.getByRole("tab", { name: "For this item · 2" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "For this item · 9" })).toHaveAttribute("aria-selected", "true");
   // The URL changed but the layout didn't: the left column is the same element.
   await expect(page.getByTestId("backlog")).toHaveAttribute("data-marker", "same-layout");
 });
@@ -58,12 +58,15 @@ test("Switching who I'm acting as", async ({ page }) => {
   await page.reload();
   await expect(page.getByLabel("Viewing as")).toHaveValue("marcus");
 
+  // Marcus isn't the lead, so his line is a suggestion recorded as his (ADR-025).
+  await expect(section(page, "Edge cases").getByTestId("suggesting")).toBeVisible();
   await newLine(page, "Edge cases");
   await page.keyboard.type("Annual plans renew mid-cycle too.");
-  await waitSaved(page, "Edge cases");
+  await expect(section(page, "Edge cases").getByTestId("save-state")).toHaveText("Suggested · Priya reviews", { timeout: 10_000 });
 
-  const block = await db.block.findFirstOrThrow({ where: { text: "Annual plans renew mid-cycle too." } });
-  expect(block.authorId).toBe("marcus");
-  const event = await db.event.findFirstOrThrow({ where: { type: "block.created" } });
+  expect(await db.block.findFirst({ where: { text: "Annual plans renew mid-cycle too." } })).toBeNull();
+  const suggestion = await db.draft.findFirstOrThrow({ where: { kind: "suggestion", text: "Annual plans renew mid-cycle too." } });
+  expect(suggestion.authorId).toBe("marcus");
+  const event = await db.event.findFirstOrThrow({ where: { type: "suggestion.updated" } });
   expect(event.actorId).toBe("marcus");
 });

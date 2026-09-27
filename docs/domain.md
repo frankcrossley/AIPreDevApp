@@ -10,12 +10,12 @@
 | **Story** | id, key, epicId, title, leadId, templateId, state, promiseId, estimate, hasUiChange, mockUri, jiraKey, sprint, signedOffBy, signedOffAt | `state` follows the lifecycle below. |
 | **Block** | id, parentType (`story`, `epic`), parentId, section, order, text, authorId, createdAt, updatedAt | A line or paragraph in the notebook. Tiptap content maps to blocks. |
 | **Item** | id, parentType, parentId, blockId, type (`decision`, `question`, `assumption`, `risk`, `talking_point`, custom), text, status (`open`, `resolved`, `dropped`, `archived`), ownerId, blocking, requiredStanceIds[], stanceRound, citations[] | Created with a chip prefix (`decision:`, `?`, `assume:`, `risk:`) or by selecting text. Can be turned back into plain text, which archives it with its history (ADR-021). |
-| **Stance** | id, itemId, personId, value (`agree`, `concern`, `object`), reason, round, createdAt | People only. `object` requires a reason. |
+| **Stance** | id, itemId, personId, value (`agree`, `concern`, `object`), reason, round, createdAt | People only, and only the people asked (`requiredStanceIds`, set by the lead). `object` requires a reason. Recorded in the decision's current round (ADR-031). |
 | **Source** | id, kind (`call`, `survey`, `ticket`, `doc`, `chat`, `code`, `adr`), title, date, uri | Imported or seeded. |
 | **Excerpt** | id, sourceId, text, locator (timestamp, line or row), kind (`quote`, `theme`), note | The unit you cite. Quoted text must be an exact substring of the source. |
 | **Citation** | id, fromType (`block`, `item`, `criterion`, `promise`), fromId, toType (`block`, `excerpt`), toId | Every sourced claim resolves through a citation. The `citations[]` on other entities are these rows, not stored fields. |
-| **Draft** | id, targetType, targetId (nullable), text, authorId, excerptId or sourceId, createdAt, expiresAt, status (`pending`, `accepted`, `merged`, `rejected`, `expired`), triagedBy, triagedAt, resultBlockId | Anything added outside a session. |
-| **HatNote** | id, hat (`qa`, `arch`, `eng`, `sec`, `pm`), targetType, targetId, kind (`challenge`, `gap`, `conflict`, `suggestion`), text, refs[], status (`open`, `accepted`, `dismissed`) | Challenges, shown in context and in the right panel. |
+| **Draft** | id, kind (`note`, `suggestion`), targetType, targetId (nullable), text, authorId, excerptId or sourceId, createdAt, expiresAt, status (`pending`, `accepted`, `merged`, `rejected`, `expired`, `withdrawn`), triagedBy, triagedAt, resultBlockId; for suggestions: section, op (`add`, `edit`, `remove`, `chip`), blockId, afterBlockId, itemType, hatNoteId | Anything added outside a session. |
+| **HatNote** | id, hat (`qa`, `arch`, `eng`, `sec`, `pm`), targetType (incl. `draft`), targetId, kind (`challenge`, `gap`, `conflict`, `suggestion`), text, refs[], status (`open`, `accepted`, `dismissed`), moveToId | Challenges, shown in context and in the right panel. |
 | **Criterion** | id, storyId, given, when, then, citations[], origin (`notes`, `hat`), hat, confirmedBy | Acceptance criteria. A criterion with `origin: hat` must be confirmed by a person. |
 | **Prfaq** | id, epicId, headline, subhead, problem, whatChanges, customerQuoteExcerptId, successMeasure, state (`draft`, `agreed`) | One per epic whose template requires it. |
 | **Promise** | id, prfaqId, text | A customer-facing promise. Each story serves one. |
@@ -43,8 +43,9 @@
 
 - `expiresAt` is whichever comes first: `createdAt + template.draftExpiryDays` (default 10), or the start of the next session.
 - Expired drafts are archived, never deleted, and can be restored.
-- Accepting a draft creates a Block or Item on the target, marked as unagreed. It never edits agreed content directly.
-- Only the target's lead, or a delegate, can triage.
+- Accepting a note creates a Block or Item on the target, marked as unagreed. Accepting a suggestion applies its edit, removal or chip change; if that touches agreed content or orphans citations, the lead sees the warning first and the story reopens with it (ADR-015, ADR-025, ADR-026). Nothing reaches agreed content without the lead's triage.
+- Only the target's lead, or a delegate, can triage: the story lead for a story, the epic owner for an epic. (Delegates aren't modelled in the prototype.) An expired draft must be restored before it can be triaged.
+- Only the story's lead edits its notebook directly; everyone else's edits are suggestions, which are drafts (ADR-025).
 
 ## Floor checks (cannot be removed)
 

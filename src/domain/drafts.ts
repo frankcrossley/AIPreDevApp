@@ -74,3 +74,11 @@ export function restoreDraft(
 export function daysUntilExpiry(draft: Draft, now: Date): number {
   return Math.ceil((draft.expiresAt.getTime() - now.getTime()) / DAY_MS);
 }
+
+/** "expires in 2 days", "expires tomorrow", "expires today", "expired", counted in calendar days (UTC). */
+export function expiryLabel(draft: Pick<Draft, "expiresAt" | "status">, now: Date): string {
+  if (draft.status === "expired" || draft.expiresAt.getTime() <= now.getTime()) return "expired";
+  const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const days = Math.round((day(draft.expiresAt) - day(now)) / DAY_MS);
+  return days <= 0 ? "expires today" : days === 1 ? "expires tomorrow" : `expires in ${days} days`;
+}
