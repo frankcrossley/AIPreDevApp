@@ -1,12 +1,12 @@
 // Stances, who's asked, answers to questions, and template checks. Rules are in src/domain.
 import { randomUUID } from "node:crypto";
 import { updateTeamChecks } from "@/domain/checks";
-import { canEditTemplate } from "@/domain/checks-view";
+import { canChangeTeamChecks } from "@/domain/checks-view";
 import { answerQuestion, planChange } from "@/domain/notebook";
 import { recordStance, setRequiredStances } from "@/domain/stances";
 import type { StanceValue } from "@/domain/types";
 import type { Db } from "./prisma";
-import { changeWrites, citationWrites, eventWrite } from "./notebook";
+import { changeWrites, eventWrite } from "./notebook";
 import { loadSnapshot } from "./snapshot";
 import type { ActionResult } from "./triage";
 
@@ -46,8 +46,8 @@ export async function setRequiredStancesAction(db: Db, input: { itemId: string; 
     return { status: "refused", reason: e instanceof Error ? e.message : "Couldn't change who's asked" };
   }
   await db.$transaction([
-    db.item.update({ where: { id: item.id }, data: { requiredStanceIdsJson: JSON.stringify(updated.requiredStanceIds) } }),
-    eventWrite(db, "stances.asked", input.actorId, story.id, { itemId: item.id, personIds: updated.requiredStanceIds }, now),
+    db.item.update({ where: { id: item.id }, data: { requiredStanceIdsJson: JSON.stringify(updated.requiredStanceIds), stanceRound: updated.stanceRound } }),
+    eventWrite(db, "stances.asked", input.actorId, story.id, { itemId: item.id, from: item.requiredStanceIds, to: updated.requiredStanceIds, newRound: updated.stanceRound !== item.stanceRound }, now),
   ]);
   return { status: "done" };
 }
@@ -69,8 +69,7 @@ export async function answerQuestionAction(
   if (plan.needsConfirmation && !input.confirmReopen) return { status: "needs_confirmation", warning: plan.warning };
   await db.$transaction([
     ...changeWrites(db, plan, r.story, ctx, input.actorId, now),
-    ...citationWrites(db, r.citations),
-    eventWrite(db, "question.answered", input.actorId, r.story.id, { itemId: input.itemId }, now),
+    eventWrite(db, "question.answered", input.actorId, r.story.id, { itemId: input.itemId, answerBlockId: r.answerBlockId }, now),
   ]);
   return { status: "done" };
 }
@@ -84,9 +83,8 @@ export async function saveTemplateChecksAction(
   const ctx = await loadSnapshot(db);
   const template = ctx.templates.find((t) => t.id === input.templateId);
   if (!template) return { status: "refused", reason: "No such template" };
-  if (!canEditTemplate(ctx.people.find((p) => p.id === input.actorId))) {
-    return { status: "refused", reason: "Product, the tech lead or the head of product can change a template's checks" };
-  }
+  const permission = canChangeTeamChecks(ctx.people.find((p) => p.id === input.actorId), template.teamCheckKeys, input.teamCheckKeys);
+  if (!permission.ok) return { status: "refused", reason: permission.reason };
   let updated;
   try {
     updated = updateTeamChecks(template, input.teamCheckKeys);

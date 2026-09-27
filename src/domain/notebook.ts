@@ -476,7 +476,7 @@ export function answerQuestion(input: {
   actorId: string;
   now: Date;
   newId: () => string;
-}): { ops: NotebookOp[]; story: Story; citations: Citation[] } {
+}): { ops: NotebookOp[]; story: Story; answerBlockId: string } {
   const { ctx, itemId, actorId, now, newId } = input;
   const text = input.text.trim();
   if (!text) throw new Error("Write the answer first");
@@ -494,17 +494,16 @@ export function answerQuestion(input: {
   const answerId = newId();
   const next = [...lines.slice(0, at + 1), { blockId: answerId, itemId: null, itemType: input.asDecision ? "decision" : null, text }, ...lines.slice(at + 1)];
   const ops = diffSection({ ctx, storyId: story.id, section: block.section, lines: next, actorId, now, newId });
-  return { ops: [...ops, { op: "resolveItem", id: question.id }], story, citations: answerCitations(answerId, block.id, [], ctx) };
+  return { ops: [...ops, { op: "resolveItem", id: question.id }], story, answerBlockId: answerId };
 }
 
 /**
- * An answer is traceable: it cites the line it answers, and any source excerpts the challenge
- * was based on. So answering a question never leaves an unsourced line behind.
+ * An answer cites the sources its challenge was based on, and nothing else: a question or the
+ * line being challenged is not evidence for a new claim. Where it answers is kept in the event log.
+ * An answer with nothing to cite is unsourced, and "Claims sourced" says so (ADR-033).
  */
-export function answerCitations(answerBlockId: string, answeredBlockId: string, refs: string[], ctx: DomainSnapshot): Citation[] {
-  const excerptRefs = refs.filter((r) => ctx.excerpts.some((e) => e.id === r));
-  return [
-    { id: `cit-block-${answerBlockId}-${answeredBlockId}`, fromType: "block", fromId: answerBlockId, toType: "block", toId: answeredBlockId },
-    ...excerptRefs.map((r): Citation => ({ id: `cit-block-${answerBlockId}-${r}`, fromType: "block", fromId: answerBlockId, toType: "excerpt", toId: r })),
-  ];
+export function answerCitations(answerBlockId: string, refs: string[], ctx: DomainSnapshot): Citation[] {
+  return refs
+    .filter((r) => ctx.excerpts.some((e) => e.id === r))
+    .map((r): Citation => ({ id: `cit-block-${answerBlockId}-${r}`, fromType: "block", fromId: answerBlockId, toType: "excerpt", toId: r }));
 }

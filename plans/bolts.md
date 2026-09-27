@@ -76,6 +76,8 @@ Every bolt is done when:
 **Deferred.**
 - The demo's last Right thing check (the PRFAQ agreed) is bolt 5; until then the demo and e2e set it in the database.
 - Stance round rules for disagreement (`two_rounds_then_decider`) and silence (`remind_once_then_owner_decides`) are bolt 8.
+- Exporting a Ready story whose checks have since drifted is a bolt 9 question.
+- The 04 scenario's link text now reads "No blocking questions · downgrade mid-cycle", the subject the rules produce.
 
 ## [ ] Bolt 5 · PRFAQ and alignment
 **Goal.** Building the right thing is visible and gated.

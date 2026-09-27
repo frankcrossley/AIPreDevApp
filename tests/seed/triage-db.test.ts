@@ -208,15 +208,36 @@ describe("every path goes through the same protections", () => {
 });
 
 describe("answers are traceable", () => {
-  it("the lead's answer to the Architect cites the line and ADR-022, so claims stay sourced", async () => {
+  it("the lead's answer to the Architect cites ADR-022, the source the challenge was based on", async () => {
     const { loadSnapshot } = await import("@/server/snapshot");
     const { evaluateBuiltRight } = await import("@/domain/checks");
     await answerHatNoteAction(env.db, { noteId: "hn3", actorId: "priya", text: "New event from metering; no exception to ADR-022.", asQuestion: false, now: NOW });
     const block = await env.db.block.findFirstOrThrow({ where: { text: "New event from metering; no exception to ADR-022." } });
-    expect((await env.db.citation.findMany({ where: { fromId: block.id } })).map((c) => c.toId).sort()).toEqual(["b4", "ex-adr022"]);
+    expect((await env.db.citation.findMany({ where: { fromId: block.id } })).map((c) => c.toId)).toEqual(["ex-adr022"]);
     const ctx = await loadSnapshot(env.db);
     const results = evaluateBuiltRight(ctx.stories.find((s) => s.id === "bill-150")!, ctx);
     expect(results.find((r) => r.key === "claims_sourced")!.passed).toBe(true);
     expect(results.find((r) => r.key === "arch_questions_answered")!.passed).toBe(true);
+  });
+});
+
+describe("stance and template refusals, against the database", () => {
+  it("refuses a stance on a Ready story, a non-lead answer, and a lead dropping an objector", async () => {
+    const { recordStanceAction, answerQuestionAction, setRequiredStancesAction, saveTemplateChecksAction } = await import("@/server/stances");
+    expect(await answerQuestionAction(env.db, { itemId: "it-q1", actorId: "sam", text: "Next cycle.", asDecision: false, now: NOW })).toMatchObject({ status: "refused", reason: expect.stringMatching(/Priya is the lead/) });
+    await recordStanceAction(env.db, { itemId: "it-d1", actorId: "dan", value: "object", reason: "Needs a metering event first.", now: NOW });
+    expect(await setRequiredStancesAction(env.db, { itemId: "it-d1", personIds: ["priya", "sam", "marcus"], actorId: "priya", now: NOW })).toMatchObject({ status: "refused", reason: expect.stringMatching(/Dan objects/) });
+    expect(await saveTemplateChecksAction(env.db, { templateId: "tpl-story", teamCheckKeys: ["estimated"], actorId: "priya", now: NOW })).toMatchObject({ status: "refused", reason: expect.stringMatching(/tech lead or the head of product/) });
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready" } });
+    expect(await recordStanceAction(env.db, { itemId: "it-d1", actorId: "dan", value: "agree", reason: null, now: NOW })).toMatchObject({ status: "refused", reason: expect.stringMatching(/is Ready/) });
+  });
+
+  it("the lead's answer on an agreed story asks before reopening", async () => {
+    const { answerQuestionAction } = await import("@/server/stances");
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "agreed" } });
+    const input = { itemId: "it-q1", actorId: "priya", text: "Next cycle.", asDecision: false, now: NOW };
+    expect((await answerQuestionAction(env.db, input)).status).toBe("needs_confirmation");
+    expect(await answerQuestionAction(env.db, { ...input, confirmReopen: true })).toEqual({ status: "done" });
+    expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).state).toBe("in_refinement");
   });
 });

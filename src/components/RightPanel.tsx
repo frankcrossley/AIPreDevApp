@@ -30,6 +30,7 @@ export interface TemplateEditorView {
   team: { key: string; label: string; scope: string; on: boolean }[];
   /** Why the viewer can't change the checks, or null. */
   reason: string | null;
+  canRemove: boolean;
 }
 
 function TemplateEditor({ t }: { t: TemplateEditorView }) {
@@ -50,7 +51,8 @@ function TemplateEditor({ t }: { t: TemplateEditorView }) {
           className="mt-2 space-y-1"
           onSubmit={(e) => {
             e.preventDefault();
-            const keys = new FormData(e.currentTarget).getAll("team").map(String);
+            // Disabled boxes aren't submitted, so keep the ones this person can't remove.
+            const keys = [...new Set([...new FormData(e.currentTarget).getAll("team").map(String), ...(t.canRemove ? [] : t.team.filter((c) => c.on).map((c) => c.key))])];
             start(async () => {
               const r = await saveTemplateChecksActionUI(t.templateId, keys);
               setMessage(r.status === "refused" ? r.reason : "Saved. Every story on this template now uses these checks.");
@@ -68,11 +70,21 @@ function TemplateEditor({ t }: { t: TemplateEditorView }) {
           ))}
           {t.team.map((c) => (
             <label key={c.key} className="flex items-center gap-2">
-              <input type="checkbox" name="team" value={c.key} defaultChecked={c.on} disabled={t.reason !== null} /> {c.label}
+              <input
+                type="checkbox"
+                name="team"
+                value={c.key}
+                defaultChecked={c.on}
+                // An editor who can't remove team checks can still add them.
+                disabled={t.reason !== null || (c.on && !t.canRemove)}
+                title={c.on && !t.canRemove ? "Removing a team check needs the tech lead or the head of product" : undefined}
+              />{" "}
+              {c.label}
               <span className="font-mono text-[10px] uppercase text-muted">Team · {c.scope === "right_thing" ? "Right thing" : "Built right"}</span>
             </label>
           ))}
           {t.reason && <p className="text-xs text-muted">{t.reason}</p>}
+          {!t.reason && !t.canRemove && <p className="text-xs text-muted">You can add team checks. Removing one needs the tech lead or the head of product.</p>}
           <button type="submit" disabled={pending || t.reason !== null} className="rounded bg-ink px-2 py-0.5 text-paper disabled:opacity-50">
             Save checks
           </button>

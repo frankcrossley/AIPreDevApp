@@ -107,3 +107,25 @@ describe("who's asked: the edges", () => {
     expect(() => answerQuestion({ ctx, itemId: "it-q1", text: "Next cycle.", asDecision: false, actorId: "sam", now: NOW, newId: () => "z1" })).toThrow(/Priya is the lead/);
   });
 });
+
+describe("changing who's asked can't game Stances complete", () => {
+  it("dropping someone who was asked starts a new round, so everyone restates", () => {
+    const ctx = seeded();
+    const item = ctx.items.find((i) => i.id === "it-d1")!;
+    const updated = setRequiredStances(item, ["priya", "sam", "marcus"], "priya", story(ctx, "BILL-150"), ctx);
+    expect(updated.stanceRound).toBe(2);
+    Object.assign(item, updated);
+    expect(evaluateBuiltRight(story(ctx, "BILL-150"), ctx).find((r) => r.key === "stances_complete")!.passed).toBe(false);
+  });
+
+  it("adding someone keeps the round", () => {
+    const ctx = seeded();
+    const item = ctx.items.find((i) => i.id === "it-d1")!;
+    expect(setRequiredStances(item, ["priya", "sam", "marcus", "dan", "mei"], "priya", story(ctx, "BILL-150"), ctx).stanceRound).toBe(1);
+  });
+
+  it("an objection's reason says what's missing", () => {
+    const ctx = seeded();
+    expect(() => recordStance({ ctx, itemId: "it-d1", personId: "dan", value: "object", reason: "No.", now: NOW, id: "x" })).toThrow("Say why you object, in a few words");
+  });
+});

@@ -37,7 +37,7 @@ export function recordStance(input: {
   if (!permission.ok) throw new Error(permission.reason);
   if (!["agree", "concern", "object"].includes(input.value)) throw new Error("A stance is agree, concern or object");
   const reason = input.reason?.trim() || null;
-  if (input.value === "object" && (!reason || reason.length < 5)) throw new Error("Say why you object");
+  if (input.value === "object" && (!reason || reason.length < 5)) throw new Error("Say why you object, in a few words");
   const item = liveDecision(input.itemId, input.ctx)!;
   return { id: input.id, itemId: item.id, personId: input.personId, value: input.value, reason, round: item.stanceRound, createdAt: input.now };
 }
@@ -82,5 +82,9 @@ export function setRequiredStances(item: Item, personIds: string[], actorId: str
       throw new Error(`${ctx.people.find((p) => p.id === personId)?.name ?? personId} objects. They stay asked until they resolve it.`);
     }
   }
-  return { ...item, requiredStanceIds: ids };
+  // Dropping someone who was asked changes what agreement means, so everyone restates: a new
+  // round. Otherwise a lead could pass "Stances complete" by removing whoever hasn't answered.
+  const dropped = item.requiredStanceIds.filter((id) => !ids.includes(id));
+  const anyStance = ctx.stances.some((s) => s.itemId === item.id && s.round === item.stanceRound);
+  return { ...item, requiredStanceIds: ids, stanceRound: dropped.length && anyStance ? item.stanceRound + 1 : item.stanceRound };
 }

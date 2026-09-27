@@ -213,7 +213,7 @@ export async function answerHatNoteAction(
   if (plan.needsConfirmation && !input.confirmReopen) return { status: "needs_confirmation", warning: plan.warning };
   await db.$transaction([
     ...changeWrites(db, plan, story, ctx, input.actorId, now),
-    ...citationWrites(db, answerCitations(blockId, block.id, note.refs, ctx)),
+    ...citationWrites(db, answerCitations(blockId, note.refs, ctx)),
     db.hatNote.update({ where: { id: note.id }, data: { status: "accepted" } }),
     eventWrite(db, "hat_note.answered", input.actorId, story.id, { hatNoteId: note.id, blockId }, now),
   ]);
@@ -279,6 +279,6 @@ export async function expireOverdueDrafts(db: Db, now = new Date()): Promise<num
 function answeredNoteWrites(db: Db, draft: Draft, ctx: DomainSnapshot) {
   const note = ctx.hatNotes.find((h) => h.id === draft.hatNoteId);
   const writes = [db.hatNote.update({ where: { id: draft.hatNoteId! }, data: { status: "accepted" } })];
-  if (!note || !draft.blockId || !draft.afterBlockId) return writes;
-  return [...writes, ...citationWrites(db, answerCitations(draft.blockId, draft.afterBlockId, note.refs, ctx))];
+  if (!note || !draft.blockId) return writes;
+  return [...writes, ...citationWrites(db, answerCitations(draft.blockId, note.refs, ctx))];
 }

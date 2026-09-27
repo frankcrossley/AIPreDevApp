@@ -39,6 +39,7 @@ test("Every failing line links to its fix", async ({ page }) => {
   await page.getByTestId("meter-Built right").click();
   await page.getByRole("link", { name: "No blocking questions · downgrade mid-cycle" }).click();
   await expect(line(page, "b6")).toHaveAttribute("data-highlighted", "true");
+  await expect(line(page, "b6")).toBeInViewport();
   // PRFAQ and read-backs link to the epic, in the same workspace.
   await page.getByRole("link", { name: /Team aligned on the PRFAQ/ }).click();
   await expect(page).toHaveURL(/\/w\/BILL-142$/);
@@ -46,6 +47,8 @@ test("Every failing line links to its fix", async ({ page }) => {
 
 test("Floor checks can't be removed", async ({ page }) => {
   await openStory(page, "BILL-150");
+  // Dan, the tech lead, can add and remove team checks.
+  await viewAs(page, "Dan");
   await page.getByRole("tab", { name: "Details" }).click();
   const editor = page.getByTestId("template-editor");
   await editor.getByRole("button", { name: "Edit checks" }).click();
@@ -55,15 +58,25 @@ test("Floor checks can't be removed", async ({ page }) => {
     await expect(box).toBeDisabled();
   }
   await expect(editor).toContainText("Floor · can't be removed");
-  const estimated = editor.getByRole("checkbox", { name: "Estimated" });
-  await expect(estimated).toBeEnabled();
-  await estimated.uncheck();
+  await editor.getByRole("checkbox", { name: "Estimated" }).uncheck();
   await editor.getByRole("button", { name: "Save checks" }).click();
   await expect(page.getByTestId("meter-Built right").getByTestId("meter-count")).toHaveText("4 of 7");
-  // And add it back.
+
+  // Priya, the story's lead, can add a team check back, but can't remove one.
+  await viewAs(page, "Priya");
+  await page.getByRole("tab", { name: "Details" }).click();
+  await editor.getByRole("button", { name: "Edit checks" }).click();
+  await expect(editor.getByRole("checkbox", { name: "Architecture questions answered" })).toBeDisabled();
   await editor.getByRole("checkbox", { name: "Estimated" }).check();
   await editor.getByRole("button", { name: "Save checks" }).click();
   await expect(page.getByTestId("meter-Built right").getByTestId("meter-count")).toHaveText("5 of 8");
+
+  // Sam can't change them at all.
+  await viewAs(page, "Sam");
+  await page.getByRole("tab", { name: "Details" }).click();
+  await editor.getByRole("button", { name: "Edit checks" }).click();
+  await expect(editor.getByRole("checkbox", { name: "Estimated" })).toBeDisabled();
+  await expect(editor.getByRole("button", { name: "Save checks" })).toBeDisabled();
 });
 
 test("Ready needs both checks and the lead", async ({ page }) => {
@@ -101,6 +114,13 @@ test("There is no way to force Ready: the sign-off route", async ({ request }) =
 
   // Signing off again is refused; there's nothing to force.
   expect((await post("priya")).status()).toBe(409);
+
+  // Nobody named, an unknown story, and a draft are all refused.
+  expect((await request.post("/api/stories/BILL-151/sign-off")).status()).toBe(401);
+  expect((await request.post("/api/stories/BILL-999/sign-off", { headers: { cookie: "viewing-as=priya" } })).status()).toBe(404);
+  const draft = await request.post("/api/stories/BILL-160/sign-off", { headers: { cookie: "viewing-as=mei" } });
+  expect(draft.status()).toBe(409);
+  expect((await db.story.findUniqueOrThrow({ where: { id: "bill-160" } })).state).toBe("draft");
 });
 
 test("Demo: from 5 of 8 to Ready in the interface", async ({ page }) => {

@@ -112,6 +112,20 @@ export function canEditTemplate(person: Person | undefined): boolean {
   return !!person && ["product", "tech_lead", "head_of_product"].includes(person.role);
 }
 
+/**
+ * Adding a team check makes Ready harder, so product, the tech lead or the head of product can.
+ * Removing one makes it easier, so a story's lead can't use it to get their own story through:
+ * only the tech lead or the head of product can remove a team check (ADR-032).
+ */
+export function canChangeTeamChecks(person: Person | undefined, from: string[], to: string[]): { ok: true } | { ok: false; reason: string } {
+  if (!canEditTemplate(person)) return { ok: false, reason: "Product, the tech lead or the head of product can change a template's checks" };
+  const removes = from.some((k) => !to.includes(k));
+  if (removes && !["tech_lead", "head_of_product"].includes(person!.role)) {
+    return { ok: false, reason: "Removing a team check needs the tech lead or the head of product" };
+  }
+  return { ok: true };
+}
+
 /** The template editor: floor checks always listed and locked, team checks from the catalogue. */
 export function templateEditorView(template: Template, ctx: DomainSnapshot, actorId: string) {
   const floor = [...FLOOR_CHECK_KEYS.right_thing, ...FLOOR_CHECK_KEYS.built_right].map((key) => ({
@@ -128,5 +142,7 @@ export function templateEditorView(template: Template, ctx: DomainSnapshot, acto
     floor,
     team,
     reason: canEditTemplate(ctx.people.find((p) => p.id === actorId)) ? null : "Product, the tech lead or the head of product can change these",
+    /** Adding is open to editors; removing needs the tech lead or the head of product. */
+    canRemove: ["tech_lead", "head_of_product"].includes(ctx.people.find((p) => p.id === actorId)?.role ?? ""),
   };
 }

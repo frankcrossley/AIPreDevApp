@@ -1,8 +1,8 @@
 // 04-checks "There is no way to force Ready", enforced on the code itself.
 // Only src/server/lifecycle.ts may write a story's state or sign-off, and it only does so
 // through the domain's signOff/transition/reopenOnEdit. The seeder in prisma/ is the one
-// other writer, and it only loads seed.json (ADR-013). The route test comes with the
-// sign-off route in bolt 4.
+// other writer, and it only loads seed.json (ADR-013). The API test on the sign-off route is
+// in tests/e2e/checks.spec.ts.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -59,7 +59,7 @@ describe("there is no way to force Ready (code guard)", () => {
     for (const w of writes) expect(w).toMatch(/^((state|signedOffBy|signedOffAt): r\.story\.(state|signedOffBy|signedOffAt)|state: "draft")$/);
   });
 
-  it("no route handler or server action writes a story yet", () => {
+  it("no route handler or server action writes a story directly", () => {
     const routes = files(SRC).filter((f) => /[/\\]route\.tsx?$/.test(f) || /["']use server["']/.test(readFileSync(f, "utf8")));
     for (const f of routes) expect(readFileSync(f, "utf8"), f).not.toMatch(STORY_WRITE);
   });

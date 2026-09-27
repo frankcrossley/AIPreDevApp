@@ -1,6 +1,6 @@
 // 04-checks: the checks view, its links and the sign-off button.
 import { describe, expect, it } from "vitest";
-import { canEditTemplate, checksView, readyDrift, shortSubject } from "@/domain/checks-view";
+import { canChangeTeamChecks, canEditTemplate, checksView, readyDrift, shortSubject } from "@/domain/checks-view";
 import { NOW, makeBill150Pass, seeded, story } from "../fixtures";
 
 describe("shortSubject", () => {
@@ -44,7 +44,9 @@ describe("Ready needs both checks and the lead", () => {
   it("enabled only for Priya once everything passes", () => {
     const ctx = makeBill150Pass(seeded());
     expect(checksView(story(ctx, "BILL-150"), ctx, "priya", NOW).signOff).toEqual({ enabled: true, reasons: [], lead: "Priya" });
-    expect(checksView(story(ctx, "BILL-150"), ctx, "sam", NOW).signOff).toEqual({ enabled: false, reasons: ["Priya is the lead"], lead: "Priya" });
+    for (const who of ["sam", "dan", "hop", "mei", "marcus", "jo"]) {
+      expect(checksView(story(ctx, "BILL-150"), ctx, who, NOW).signOff, who).toEqual({ enabled: false, reasons: ["Priya is the lead"], lead: "Priya" });
+    }
   });
 });
 
@@ -62,5 +64,25 @@ describe("who edits template checks", () => {
     const by = (id: string) => people.find((p) => p.id === id);
     expect(["priya", "dan", "hop"].map((id) => canEditTemplate(by(id)))).toEqual([true, true, true]);
     expect(["sam", "marcus", "jo"].map((id) => canEditTemplate(by(id)))).toEqual([false, false, false]);
+  });
+});
+
+describe("changing team checks", () => {
+  const people = seeded().people;
+  const by = (id: string) => people.find((p) => p.id === id);
+  const all = ["within_promise_scope", "arch_questions_answered", "estimated", "mock_if_ui_change"];
+
+  it("a lead can add a check but not remove one to get their own story through", () => {
+    expect(canChangeTeamChecks(by("priya"), ["estimated"], ["estimated", "mock_if_ui_change"])).toEqual({ ok: true });
+    expect(canChangeTeamChecks(by("priya"), all, all.filter((k) => k !== "arch_questions_answered"))).toEqual({
+      ok: false,
+      reason: "Removing a team check needs the tech lead or the head of product",
+    });
+  });
+
+  it("the tech lead and the head of product can remove; others can't change anything", () => {
+    expect(canChangeTeamChecks(by("dan"), all, ["estimated"])).toEqual({ ok: true });
+    expect(canChangeTeamChecks(by("hop"), all, [])).toEqual({ ok: true });
+    expect(canChangeTeamChecks(by("sam"), [], ["estimated"])).toMatchObject({ ok: false });
   });
 });
