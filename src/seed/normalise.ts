@@ -80,6 +80,7 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
     sprint: s.sprint ?? null,
     signedOffBy: s.signedOffBy ?? null,
     signedOffAt: s.signedOffBy ? daysAgo(s.signedOffDaysAgo ?? 0) : null,
+    archivedAt: null,
   }));
 
   const parentTypeOf = (id: string): ParentType => (epicIds.has(id) ? "epic" : "story");
@@ -109,6 +110,7 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
         answer: f.answer ?? null,
         storyIds: f.storyIds ?? [],
         blocking: Boolean(f.blocking),
+        evidenceExcerptId: f.evidenceExcerptId ?? null,
       });
     }
   }

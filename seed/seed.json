@@ -250,7 +250,8 @@
           "question": "What about the 11 of 40 who'd rather keep a flat fee?",
           "answer": null,
           "storyIds": [],
-          "blocking": true
+          "blocking": true,
+          "evidenceExcerptId": "ex-survey-flat-fee"
         },
         {
           "id": "faq-5",
@@ -402,6 +403,14 @@
       "kind": "theme",
       "text": "Overcharged after upgrading · 9 of 40",
       "note": "Computed theme. The rows are assigned by themeSurvey and counted in code; the seeder can recompute this from survey.csv."
+    },
+    {
+      "id": "ex-survey-flat-fee",
+      "sourceId": "src-survey",
+      "locator": "theme:Prefer a flat fee",
+      "kind": "theme",
+      "text": "Prefer a flat fee · 11 of 40",
+      "note": "Computed theme. Evidence against usage pricing; the internal FAQ has to answer it."
     }
   ],
   "blocks": [

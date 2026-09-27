@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { reopenOnEdit, signOff, transition, type ReopenResult, type TransitionOptions, type TransitionResult } from "@/domain/lifecycle";
 import { newDraftStory } from "@/domain/notebook";
+import { dropStory, moveToOwnEpic, promiseForStory } from "@/domain/prfaq";
 import type { DomainSnapshot, Story, StoryState } from "@/domain/types";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "./prisma";
@@ -114,4 +115,38 @@ export async function createDraftStory(
     }),
   ]);
   return { id: story.id, key: story.key };
+}
+
+// ---------- stories that serve no promise (ADR-036) ----------
+
+
+export async function dropStoryWrite(db: Db, storyId: string, actorId: string, now = new Date()) {
+  const { story } = await load(db, storyId);
+  const dropped = dropStory(story, now);
+  await db.$transaction([
+    db.story.update({ where: { id: story.id }, data: { archivedAt: dropped.archivedAt } }),
+    db.event.create({ data: { id: randomUUID(), type: "story.dropped", actorId, subjectType: "epic", subjectId: story.epicId, payloadJson: JSON.stringify({ storyId: story.id, key: story.key }) } }),
+  ]);
+}
+
+export async function linkNewPromiseWrite(db: Db, input: { storyId: string; text: string; actorId: string }) {
+  const { ctx, story } = await load(db, input.storyId);
+  const prfaq = ctx.prfaqs.find((p) => p.epicId === story.epicId);
+  if (!prfaq) throw new Error("The epic has no PRFAQ yet");
+  const { promise, story: linked } = promiseForStory(story, prfaq, input.text, `pr-${randomUUID().slice(0, 8)}`, ctx);
+  return { ctx, prfaq, promise, writes: [
+    db.prfaqPromise.create({ data: promise }),
+    db.story.update({ where: { id: story.id }, data: { promiseId: linked.promiseId } }),
+  ] };
+}
+
+export async function moveToOwnEpicWrite(db: Db, storyId: string, actorId: string) {
+  const { ctx, story } = await load(db, storyId);
+  const { epic, story: moved } = moveToOwnEpic(story, ctx, actorId);
+  await db.$transaction([
+    db.epic.create({ data: { id: epic.id, key: epic.key, title: epic.title, ownerId: epic.ownerId, deciderId: epic.deciderId, templateId: epic.templateId, memberIdsJson: JSON.stringify(epic.memberIds) } }),
+    db.story.update({ where: { id: story.id }, data: { epicId: moved.epicId, promiseId: null } }),
+    db.event.create({ data: { id: randomUUID(), type: "story.moved_to_epic", actorId, subjectType: "epic", subjectId: story.epicId, payloadJson: JSON.stringify({ storyId: story.id, to: epic.key }) } }),
+  ]);
+  return epic;
 }

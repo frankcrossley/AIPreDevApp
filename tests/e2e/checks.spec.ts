@@ -124,7 +124,32 @@ test("There is no way to force Ready: the sign-off route", async ({ request }) =
 });
 
 test("Demo: from 5 of 8 to Ready in the interface", async ({ page }) => {
-  await agreePrfaq();
+  // Agree the PRFAQ in the interface (bolt 5): answer the flat-fee FAQ, realign, read back, agree.
+  await page.goto("/w/BILL-142");
+  const faq4 = page.getByTestId("faq-faq-4");
+  await faq4.getByRole("button", { name: "Edit" }).click();
+  await faq4.getByLabel("Answer", { exact: true }).fill("They keep today's fee, capped, for 18 months, then choose.");
+  await faq4.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByTestId("faq-faq-4")).toContainText("They keep today's fee");
+  for (const [who, text] of [
+    ["Dan", "Monthly usage billing, with live usage visible so customers can budget."],
+    ["Security", "Usage pricing that stores no new personal data."],
+  ]) {
+    await page.getByLabel("Viewing as").selectOption({ label: who });
+    await expect(page.getByLabel("Viewing as")).toHaveValue(who.toLowerCase());
+    await page.goto("/w/BILL-142");
+    const rewrite = page.getByRole("button", { name: "Rewrite your read-back" });
+    if (await rewrite.isVisible()) await rewrite.click();
+    await page.getByTestId("readback-prompt").getByLabel(/What are we building/).fill(text);
+    await page.getByTestId("readback-prompt").getByRole("button", { name: "Save read-back" }).click();
+    await expect(page.getByTestId(`readback-${who.toLowerCase()}`)).toContainText("Matches");
+  }
+  await page.getByLabel("Viewing as").selectOption({ label: "Priya" });
+  await expect(page.getByLabel("Viewing as")).toHaveValue("priya");
+  await page.goto("/w/BILL-142");
+  await page.getByTestId("agree-prfaq").click();
+  await expect(page.getByTestId("state-pill")).toHaveText("Agreed");
+
   await openStory(page, "BILL-150");
   await expect(page.getByTestId("meter-Built right").getByTestId("meter-count")).toHaveText("5 of 8");
 

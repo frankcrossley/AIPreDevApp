@@ -352,7 +352,7 @@ export function evaluatePrfaqAgreement(epic: Epic, ctx: DomainSnapshot): CheckRe
     .filter((f) => f.prfaqId === prfaq?.id && f.audience === "internal" && f.blocking && !f.answer?.trim())
     .map((f) => ({ reason: `Blocking FAQ unanswered: ${quote(f.question)}`, fixTarget: { type: "faq", id: f.id } }));
 
-  const stories = ctx.stories.filter((s) => s.epicId === epic.id);
+  const stories = ctx.stories.filter((s) => s.epicId === epic.id && !s.archivedAt);
   const unserved: Blocker[] = ctx.promises
     .filter((p) => p.prfaqId === prfaq?.id && !stories.some((s) => s.promiseId === p.id))
     .map((p) => ({ reason: `No story serves ${quote(p.text)}`, fixTarget: { type: "promise", id: p.id } }));
@@ -369,5 +369,5 @@ export function evaluatePrfaqAgreement(epic: Epic, ctx: DomainSnapshot): CheckRe
 /** Stories on the epic that serve no promise. Flagged on the epic, never blocking agreement. */
 export function storiesServingNoPromise(epic: Epic, ctx: DomainSnapshot): Story[] {
   const promiseIds = new Set(ctx.promises.map((p) => p.id));
-  return ctx.stories.filter((s) => s.epicId === epic.id && (!s.promiseId || !promiseIds.has(s.promiseId)));
+  return ctx.stories.filter((s) => s.epicId === epic.id && !s.archivedAt && (!s.promiseId || !promiseIds.has(s.promiseId)));
 }

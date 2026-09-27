@@ -317,6 +317,7 @@ export function newDraftStory(input: {
     sprint: null,
     signedOffBy: null,
     signedOffAt: null,
+    archivedAt: null,
   };
   const source = input.sourceBlockId ? input.ctx.blocks.find((b) => b.id === input.sourceBlockId) : undefined;
   if (!source) return { story, block: null, citation: null };

@@ -8,6 +8,18 @@ import { VIEWING_AS_COOKIE, currentActorId } from "@/server/actor";
 import { prisma } from "@/server/db";
 import { createDraftStory, signOffStory } from "@/server/lifecycle";
 import { answerQuestionAction, recordStanceAction, saveTemplateChecksAction, setRequiredStancesAction } from "@/server/stances";
+import type { PrfaqFields } from "@/domain/prfaq";
+import {
+  addPromiseForStoryAction,
+  agreePrfaqAction,
+  dropStoryAction,
+  moveStoryToOwnEpicAction,
+  saveFaqAction,
+  savePrfaqFieldsAction,
+  savePromiseAction,
+  setQuoteAction,
+  writeReadBackAction,
+} from "@/server/prfaq";
 import { saveSection, setItemBlocking, type SaveResult } from "@/server/notebook";
 import {
   acceptDraftAction,
@@ -150,4 +162,42 @@ export async function saveTemplateChecksActionUI(templateId: string, teamCheckKe
   const r = await saveTemplateChecksAction(prisma, { templateId, teamCheckKeys, actorId: await actor() });
   if (r.status === "done") refresh();
   return r;
+}
+
+// ---------- PRFAQ and alignment ----------
+
+const done = (r: ActionResult) => {
+  if (r.status === "done") refresh();
+  return r;
+};
+
+export async function savePrfaqFieldsUI(epicId: string, fields: PrfaqFields) {
+  return done(await savePrfaqFieldsAction(prisma, { epicId, fields, actorId: await actor() }));
+}
+export async function setQuoteUI(epicId: string, excerptId: string) {
+  return done(await setQuoteAction(prisma, { epicId, excerptId, actorId: await actor() }));
+}
+export async function savePromiseUI(epicId: string, id: string | null, text: string) {
+  return done(await savePromiseAction(prisma, { epicId, id, text, actorId: await actor() }));
+}
+export async function saveFaqUI(
+  epicId: string,
+  faq: { id: string | null; audience: "customer" | "internal"; question: string; answer: string | null; storyIds: string[]; blocking: boolean },
+) {
+  return done(await saveFaqAction(prisma, { epicId, ...faq, actorId: await actor() }));
+}
+export async function writeReadBackUI(epicId: string, text: string) {
+  return done(await writeReadBackAction(prisma, { epicId, text, actorId: await actor() }));
+}
+export async function agreePrfaqUI(epicId: string) {
+  return done(await agreePrfaqAction(prisma, { epicId, actorId: await actor() }));
+}
+export async function addPromiseForStoryUI(epicId: string, storyId: string, text: string) {
+  return done(await addPromiseForStoryAction(prisma, { epicId, storyId, text, actorId: await actor() }));
+}
+export async function moveStoryToOwnEpicUI(epicId: string, storyId: string) {
+  return done(await moveStoryToOwnEpicAction(prisma, { epicId, storyId, actorId: await actor() }));
+}
+export async function dropStoryUI(epicId: string, storyId: string) {
+  return done(await dropStoryAction(prisma, { epicId, storyId, actorId: await actor() }));
 }

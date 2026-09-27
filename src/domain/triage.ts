@@ -41,9 +41,13 @@ export function canWithdraw(personId: string, draft: Draft): Permission {
   return { ok: true };
 }
 
-/** Anyone on the team can put an item or hat note on this story to a planned session (ADR-029). */
+/** Anyone on the team can put an item or hat note on a story, or a read-back on an epic, to a planned session (ADR-029). */
 export function canPutToSession(session: Session | undefined, subjectId: string, storyId: string, ctx: DomainSnapshot): Permission {
   if (!session || session.status === "ended") return { ok: false, reason: "That session isn't planned any more" };
+  // On an epic: a read-back to talk through.
+  if (ctx.epics.some((e) => e.id === storyId)) {
+    return ctx.readBacks.some((r) => r.id === subjectId && r.epicId === storyId) ? { ok: true } : { ok: false, reason: "That isn't on this epic" };
+  }
   const onStory =
     ctx.items.some((i) => i.id === subjectId && i.parentType === "story" && i.parentId === storyId) ||
     ctx.hatNotes.some((h) => {

@@ -175,3 +175,18 @@ Template changes apply at once to every story on the template (there is no per-s
 **Context.** Answering the Architect adds a line under "What we think", a required section, and an unsourced line there would fail "Claims sourced": answering one check would break another.
 **Decision.** An answer, whether the lead's or an accepted suggestion, cites the source excerpts its hat note was based on (for the Architect's challenge, ADR-022), and nothing else: a question, or the line being challenged, is not evidence for a new claim. Which question or note it answers is kept in the event log. An answer with nothing to cite is unsourced, and "Claims sourced" says so until someone sources it.
 **Consequence.** Sourcing stays honest: closing a challenge based on a source keeps claims sourced, and anything else has to be sourced like any other line.
+
+## ADR-034 · Editing the PRFAQ, and agreeing it again
+**Context.** The epic's PRFAQ anchors every story. It must be editable, but agreement on it mustn't outlive a change to it.
+**Decision.** Only the epic owner edits the PRFAQ: headline, subhead, problem, what changes, success measure, promises, and FAQ entries (answering an internal FAQ is an FAQ edit). The customer quote is chosen from verbatim excerpts, never typed. Any content edit sends an agreed PRFAQ back to `draft` in the same transaction, logs `prfaq.reopened`, and works out too-close read-backs again, like editing agreed content on a story (ADR-015). "Agree the PRFAQ" is for the owner or the decider, and only once every member's read-back matches, no blocking internal FAQ is unanswered, and every promise has a story. Every story's `team_aligned` follows the PRFAQ's state, so Ready stories show drift if it's reopened. Internal FAQ entries can carry the evidence they must answer (`evidenceExcerptId`), shown as "Evidence against".
+**Consequence.** Agreement is measured, not assumed, and can't be edited out from under the team.
+
+## ADR-035 · Read-backs until the model assesses them
+**Context.** `assessReadBack` is a model call, which arrives in bolt 6. Bolt 5 still needs read-backs to be assessed.
+**Decision.** A member writes their own read-back, one line. Whether it's too close to the page is decided in code, always: normalised character-bigram (Dice) similarity above 0.85 to any PRFAQ sentence, promise, or FAQ question or answer. Otherwise a stand-in rule marks it as matching and says so in its note. Seeded assessments, like Dan's divergence, stay as they are. A diverging or too-close read-back can be put on the next session's agenda ("Talk it through").
+**Consequence.** Bolt 6 replaces the stand-in with the model and its validator; the too-close rule stays in code.
+
+## ADR-036 · Stories that serve no promise
+**Context.** Such stories are flagged, not blocking, with three ways out.
+**Decision.** The epic owner can add a promise the story serves, move the story to its own new epic (owned by them, big-change template, key from the shared numbering), or drop it. Dropping is only for a story that isn't in refinement yet, and archives it (`archivedAt`), never deletes it; archived stories leave the backlog, the agenda and the epic's checks. These story writes live in `src/server/lifecycle.ts` with the other story writes (ADR-013).
+**Consequence.** The epic stays honest about what each story is for.

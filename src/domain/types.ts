@@ -66,6 +66,8 @@ export interface Story {
   sprint: string | null;
   signedOffBy: string | null;
   signedOffAt: Date | null;
+  /** Set when the story was dropped (ADR-036). Archived stories leave the backlog and the epic's checks. */
+  archivedAt: Date | null;
 }
 
 export type ParentType = "story" | "epic";
@@ -235,6 +237,8 @@ export interface FaqEntry {
   answer: string | null;
   storyIds: string[];
   blocking: boolean;
+  /** Evidence this FAQ has to answer, e.g. the survey theme preferring a flat fee. */
+  evidenceExcerptId: string | null;
 }
 
 export type ReadBackAssessment = "pending" | "matches" | "diverges" | "too_close";

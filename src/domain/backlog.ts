@@ -87,7 +87,7 @@ export function backlogEpic(epic: Epic, ctx: DomainSnapshot): BacklogEpic {
     },
     prfaqAgreed: prfaq?.state === "agreed" && evaluatePrfaqAgreement(epic, ctx).every((r) => r.passed),
     stories: ctx.stories
-      .filter((s) => s.epicId === epic.id)
+      .filter((s) => s.epicId === epic.id && !s.archivedAt)
       .sort(byKey)
       .map((s) => backlogRow(s, ctx, unpromised)),
   };

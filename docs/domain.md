@@ -7,7 +7,7 @@
 | **Person** | id, name, role (`product`, `finance`, `sales`, `tech_lead`, `design`, `security`, `head_of_product`, `scribe`) | Seeded. No auth in the prototype. |
 | **Template** | id, name (`story`, `big_change`, `small_change`, `bug`), sections[], requiredSections[], teamCheckKeys[], requiresPrfaq, draftExpiryDays, silenceRule, disagreementRule | `requiredSections` feed `claims_sourced` (defaults to all sections). Editable by the team. Cannot remove floor checks. |
 | **Epic** | id, key (`BILL-142`), title, ownerId, deciderId, templateId, memberIds[] | Owns a PRFAQ when its template requires one. |
-| **Story** | id, key, epicId, title, leadId, templateId, state, promiseId, estimate, hasUiChange, mockUri, jiraKey, sprint, signedOffBy, signedOffAt | `state` follows the lifecycle below. |
+| **Story** | id, key, epicId, title, leadId, templateId, state, promiseId, estimate, hasUiChange, mockUri, jiraKey, sprint, signedOffBy, signedOffAt, archivedAt | `state` follows the lifecycle below. |
 | **Block** | id, parentType (`story`, `epic`), parentId, section, order, text, authorId, createdAt, updatedAt | A line or paragraph in the notebook. Tiptap content maps to blocks. |
 | **Item** | id, parentType, parentId, blockId, type (`decision`, `question`, `assumption`, `risk`, `talking_point`, custom), text, status (`open`, `resolved`, `dropped`, `archived`), ownerId, blocking, requiredStanceIds[], stanceRound, citations[] | Created with a chip prefix (`decision:`, `?`, `assume:`, `risk:`) or by selecting text. Can be turned back into plain text, which archives it with its history (ADR-021). |
 | **Stance** | id, itemId, personId, value (`agree`, `concern`, `object`), reason, round, createdAt | People only, and only the people asked (`requiredStanceIds`, set by the lead). `object` requires a reason. Recorded in the decision's current round (ADR-031). |
@@ -19,7 +19,7 @@
 | **Criterion** | id, storyId, given, when, then, citations[], origin (`notes`, `hat`), hat, confirmedBy | Acceptance criteria. A criterion with `origin: hat` must be confirmed by a person. |
 | **Prfaq** | id, epicId, headline, subhead, problem, whatChanges, customerQuoteExcerptId, successMeasure, state (`draft`, `agreed`) | One per epic whose template requires it. |
 | **Promise** | id, prfaqId, text | A customer-facing promise. Each story serves one. |
-| **FaqEntry** | id, prfaqId, audience (`customer`, `internal`), question, answer (nullable), storyIds[], blocking | An unanswered blocking internal FAQ blocks agreement. |
+| **FaqEntry** | id, prfaqId, audience (`customer`, `internal`), question, answer (nullable), storyIds[], blocking, evidenceExcerptId | An unanswered blocking internal FAQ blocks agreement. Only internal entries block. |
 | **ReadBack** | id, epicId, personId, text, assessment (`pending`, `matches`, `diverges`, `too_close`), note, createdAt | One line per member: what we're building, and why. |
 | **CheckDefinition** | key, scope (`right_thing`, `built_right`), tier (`floor`, `team`), label, appliesTo | The floor set is below. |
 | **Session** | id, date, lengthMinutes, attendeeIds[], agenda[], status (`planned`, `live`, `ended`), captureText | A refinement session. |

@@ -244,7 +244,11 @@ export async function putToSessionAction(db: Db, input: { sessionId: string; sub
   if (session.agenda.includes(input.subjectId)) return { status: "done" };
   await db.$transaction([
     db.session.update({ where: { id: session.id }, data: { agendaJson: JSON.stringify([...session.agenda, input.subjectId]) } }),
-    eventWrite(db, "session.agenda_added", input.actorId, input.storyId, { sessionId: session.id, subjectId: input.subjectId }, now),
+    ctx.epics.some((e) => e.id === input.storyId)
+      ? db.event.create({
+          data: { id: randomUUID(), type: "session.agenda_added", actorId: input.actorId, subjectType: "epic", subjectId: input.storyId, payloadJson: JSON.stringify({ sessionId: session.id, subjectId: input.subjectId }), createdAt: now },
+        })
+      : eventWrite(db, "session.agenda_added", input.actorId, input.storyId, { sessionId: session.id, subjectId: input.subjectId }, now),
   ]);
   return { status: "done" };
 }

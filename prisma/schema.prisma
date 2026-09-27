@@ -58,6 +58,8 @@ model Story {
   /// The lead's sign-off. Written only by src/server/lifecycle.ts, cleared by edits to agreed content.
   signedOffBy String?
   signedOffAt DateTime?
+  /// Set when a story is dropped (ADR-036). Archived, never deleted.
+  archivedAt  DateTime?
 }
 
 model Block {
@@ -202,6 +204,7 @@ model FaqEntry {
   answer       String?
   storyIdsJson String
   blocking     Boolean @default(false)
+  evidenceExcerptId String?
 }
 
 model ReadBack {

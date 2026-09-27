@@ -169,7 +169,7 @@ export function buildAgenda(sessionId: string, ctx: DomainSnapshot, now: Date): 
   const near: AgendaEntry[] = [];
   const blocking: AgendaEntry[] = [];
   const fresh: AgendaEntry[] = [];
-  for (const story of ctx.stories.filter((s) => !DONE_STATES.has(s.state) && s.state !== "draft").sort(byKey)) {
+  for (const story of ctx.stories.filter((s) => !DONE_STATES.has(s.state) && s.state !== "draft" && !s.archivedAt).sort(byKey)) {
     const failing = [...evaluateRightThing(story, ctx), ...evaluateBuiltRight(story, ctx)].filter((r) => !r.passed);
     const questions = ctx.items.filter(
       (i) => i.parentType === "story" && i.parentId === story.id && i.type === "question" && i.blocking && i.status === "open",

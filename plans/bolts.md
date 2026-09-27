@@ -79,7 +79,7 @@ Every bolt is done when:
 - Exporting a Ready story whose checks have since drifted is a bolt 9 question.
 - The 04 scenario's link text now reads "No blocking questions · downgrade mid-cycle", the subject the rules produce.
 
-## [ ] Bolt 5 · PRFAQ and alignment
+## [x] Bolt 5 · PRFAQ and alignment
 **Goal.** Building the right thing is visible and gated.
 **Scope.**
 - The epic centre as an editable PRFAQ, with a customer quote chosen from excerpts, promises and FAQ entries linked to stories.
@@ -87,6 +87,10 @@ Every bolt is done when:
 - "Agree the PRFAQ" gating `team_aligned`.
 **Acceptance.** `05-prfaq-alignment.feature`.
 **Demo.** Dan's read-back is flagged. Fix the flat-fee FAQ, realign, agree, and watch BILL-150's Right thing pass.
+**Done.** Editable PRFAQ, a real customer quote, FAQ links to stories, read-backs with too-close decided in code, Talk it through, evidence against, the three ways out for stories with no promise, and "Agree the PRFAQ" gating `team_aligned`. The bolt 4 demo now reaches Ready entirely in the interface. ADR-034 to ADR-036.
+**Deferred.**
+- Read-back assessment beyond too-close is a stand-in rule until the model in bolt 6.
+- Adding new FAQ entries (editing existing ones works) and deleting promises.
 
 ## [ ] Bolt 6 · The AI teammate
 **Goal.** Real reshaping and challenges, with the promise enforced in code.
