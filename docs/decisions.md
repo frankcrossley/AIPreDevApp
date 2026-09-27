@@ -112,12 +112,27 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Decision.** A new decision asks the story lead, its author and the epic's tech lead. The stance controls in bolt 4 let people change the list.
 **Consequence.** New decisions start small; the lead widens them when the decision touches finance or sales.
 
-## ADR-023 · Notebook edits land directly; drafts come from outside the notebook
-**Context.** `docs/domain.md` calls a Draft "anything added outside a session", yet 02-notebook has people typing items straight into the notebook, and 03-right-panel has drafts from people and sources waiting for the lead.
-**Decision.** For the prototype, anyone "viewing as" a person can type into a story's notebook, and it lands directly as unagreed Blocks and Items. Agreed content stays protected by the reopen rule (ADR-015), so a direct edit can never change agreed content silently. Drafts are contributions that arrive from outside the notebook: people's suggestions from the tray, discovery sources and ingestion (bolts 3 and 7). Rule 6 applies to those.
-**Consequence.** Open question for the product owner: should notebook edits by people who aren't the lead, outside a session, become drafts instead? If so, bolt 3 routes them through the draft queue.
+## ADR-023 · Where notebook edits go
+**Context.** `docs/domain.md` calls a Draft "anything added outside a session", yet 02-notebook has people typing straight into the notebook.
+**Decision.** Amended by ADR-025 after the product owner's answer: only the story's lead writes to the notebook directly. Everyone else's edits are suggestions, which are drafts. Drafts also arrive from outside the notebook (people's notes, discovery sources, ingestion). Rule 6 applies to all of them.
+**Consequence.** Nothing lands in a story without its lead's say-so, and agreed content is still protected by the reopen rule (ADR-015).
 
 ## ADR-024 · New stories from "Turn into", and backlog labels
 **Context.** "Turn into → Story" needs a lead, template and key, and the backlog needs one label per state.
 **Decision.** `newDraftStory` makes a `draft` story in the same epic. Whoever creates it leads it (so they triage it), it uses the template named `story`, its key is one past the highest number in use with the epic's prefix, and its id is the key in lower case. Its first line quotes the selection and cites the line it came from. In the backlog, exported stories are labelled Ready, with their sprint.
 **Consequence.** The link from new story to source line survives as a citation. Two people creating stories at the same moment could clash on a key; the database's unique key refuses the second, and they retry.
+
+## ADR-025 · Suggest mode: the lead edits, everyone else suggests
+**Context.** The product owner wants edits from people other than the lead to work like Word's suggestions: proposed in place, applied only when approved.
+**Decision.** `editsDirectly(person, story)` is true only for the story's lead (bolt 8 adds the scribe in session mode). Anyone else's section save goes through `toSuggestions()`, which compares their lines with the real notebook and turns the difference into Drafts of kind `suggestion`: `add` (a new line after a given line), `edit`, `remove` or `chip`. Each person's pending suggestions are reconciled on every save, so they keep their ids and expiry while the person keeps typing, and anything they take back is `withdrawn`. The author sees their suggestions applied in their own editor, dashed and labelled; the lead and others see them dashed under the line they're about, and in the right panel, with Accept and Reject. Accepting runs the same diff as a direct edit, credited to the author, and goes through the reopen warning when it touches agreed content. Answering a hat note as a non-lead is also a suggestion, and accepting it closes the note. Suggestions expire like any draft.
+**Consequence.** The 02-notebook scenario "Editing agreed content reopens it" is updated: Dan's edit is a suggestion, and Priya sees the warning when she accepts it. Marking a question blocking and dismissing hat notes are lead-only.
+
+## ADR-026 · Deleting a line others cite
+**Context.** Other lines, criteria and items cite lines (Citations to blocks). Deleting a cited line would leave them pointing at nothing.
+**Decision.** When a save deletes a line that something cites, the server answers "needs confirmation" with what depends on it. On confirmation, the citations to it are removed in the same transaction, and each dependent gets a `talking_point` item ("Realign: … lost its source …") owned by whoever wrote it, linked to it where it's a line. Their sourcing checks then fail until someone re-sources them.
+**Consequence.** Impacts are visible before anyone commits to them, and the realignment is tracked where the team already looks.
+
+## ADR-027 · Prefixes are typed, and can be undone
+**Context.** `risk:` or `decision:` can be ordinary words at the start of a line.
+**Decision.** Chips come only from the editor: a prefix typed at the start of a line, or "Turn into". Saved or pasted text is never turned into a chip on the server. Backspace straight after the conversion undoes it (Tiptap's `undoInputRule`), leaving the prefix as plain text.
+**Consequence.** Like Word's autocorrect, it's easy to escape and never surprising.

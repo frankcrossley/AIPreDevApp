@@ -624,6 +624,18 @@
         "it-q1"
       ],
       "status": "open"
+    },
+    {
+      "id": "hn5",
+      "hat": "pm",
+      "kind": "suggestion",
+      "targetId": "dr3",
+      "text": "Fits BILL-160 better.",
+      "refs": [
+        "ex-acme-1432"
+      ],
+      "status": "open",
+      "moveToId": "bill-160"
     }
   ],
   "drafts": [
@@ -652,7 +664,7 @@
     },
     {
       "id": "dr3",
-      "targetId": "bill-160",
+      "targetId": "bill-150",
       "excerptId": "ex-acme-1432",
       "createdDaysAgo": 2,
       "text": "We budget by department."

@@ -2,9 +2,10 @@
 // Read-only for now; editing and agreeing the PRFAQ arrive in bolt 5.
 import { evaluatePrfaqAgreement, storiesServingNoPromise } from "@/domain/checks";
 import type { DomainSnapshot, Epic } from "@/domain/types";
+import { forThisEpic } from "@/domain/panel";
 import { EpicPanel } from "./EpicPanel";
 
-export function EpicView({ epic, ctx }: { epic: Epic; ctx: DomainSnapshot }) {
+export function EpicView({ epic, ctx, actorId }: { epic: Epic; ctx: DomainSnapshot; actorId: string }) {
   const name = (id: string | null) => ctx.people.find((p) => p.id === id)?.name ?? "nobody";
   const prfaq = ctx.prfaqs.find((p) => p.epicId === epic.id);
   const quote = ctx.excerpts.find((e) => e.id === prfaq?.customerQuoteExcerptId);
@@ -85,7 +86,7 @@ export function EpicView({ epic, ctx }: { epic: Epic; ctx: DomainSnapshot }) {
           </article>
         )}
       </main>
-      <EpicPanel alignment={alignment} details={[["Owner", name(epic.ownerId)], ["Decider", name(epic.deciderId)], ["Members", epic.memberIds.map(name).join(", ")]]} />
+      <EpicPanel epicId={epic.id} cards={forThisEpic(epic, ctx, new Date(), actorId)} alignment={alignment} details={[["Owner", name(epic.ownerId)], ["Decider", name(epic.deciderId)], ["Members", epic.memberIds.map(name).join(", ")]]} />
     </>
   );
 }

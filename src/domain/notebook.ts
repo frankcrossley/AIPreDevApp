@@ -105,10 +105,10 @@ export function diffSection({ ctx, storyId, section, lines, actorId, now, newId 
 
   kept.forEach((line, index) => {
     const order = index + 1;
-    // A prefix typed or pasted without the editor converting it still becomes a chip.
-    const parsed = line.itemType ? null : parsePrefix(line.text);
-    const itemType = line.itemType ?? parsed?.type ?? null;
-    const text = parsed?.text ?? line.text;
+    // Chips come only from the editor (a typed prefix, "Turn into"). Saved text that starts
+    // with "risk:" stays plain text, so a prefix can always be escaped (ADR-027).
+    const itemType = line.itemType;
+    const text = line.text;
 
     let blockId = line.blockId;
     let previous: Block | undefined;
@@ -231,12 +231,14 @@ export function editedBlockIds(ops: NotebookOp[], ctx: DomainSnapshot): string[]
 
 const COUNT_WORDS = ["", "", "both", "all three", "all four", "all five", "all six", "all seven", "all eight", "all nine", "all ten"];
 
+export const listNames = (names: string[]) =>
+  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
 /** "Priya, Sam and Dan agreed this. Saving reopens it for all three." */
-export function reopenWarning(names: string[]): string {
+export function reopenWarning(names: string[], verb: "Saving" | "Accepting" = "Saving"): string {
   if (!names.length) return "";
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const who = names.length === 1 ? "them" : (COUNT_WORDS[names.length] ?? `all ${names.length}`);
-  return `${list} agreed this. Saving reopens it for ${who}.`;
+  return `${listNames(names)} agreed this. ${verb} reopens it for ${who}.`;
 }
 
 const AGREED_STATES = new Set(["agreed", "ready", "exported"]);
@@ -254,7 +256,12 @@ export interface ReopenImpact {
  * Whether a set of notebook ops edits agreed content, who agreed it, and the warning to show.
  * Once a story is agreed, ready or exported, any change at all reopens it, including new lines.
  */
-export function reopenImpact(ops: NotebookOp[], story: Story, ctx: DomainSnapshot): ReopenImpact {
+export function reopenImpact(
+  ops: NotebookOp[],
+  story: Story,
+  ctx: DomainSnapshot,
+  verb: "Saving" | "Accepting" = "Saving",
+): ReopenImpact {
   const name = (id: string) => ctx.people.find((p) => p.id === id)?.name ?? id;
   if (AGREED_STATES.has(story.state)) {
     const personIds = ops.length ? agreedBy([], story.id, ctx) : [];
@@ -265,13 +272,13 @@ export function reopenImpact(ops: NotebookOp[], story: Story, ctx: DomainSnapsho
       warning: !ops.length
         ? ""
         : personIds.length
-          ? reopenWarning(personIds.map(name))
-          : `${story.key} is ${STATE_LABELS[story.state]}. Saving reopens it.`,
+          ? reopenWarning(personIds.map(name), verb)
+          : `${story.key} is ${STATE_LABELS[story.state]}. ${verb} reopens it.`,
     };
   }
   const editedIds = editedBlockIds(ops, ctx);
   const personIds = agreedBy(editedIds, story.id, ctx);
-  return { reopen: personIds.length > 0, editedIds, personIds, warning: reopenWarning(personIds.map(name)) };
+  return { reopen: personIds.length > 0, editedIds, personIds, warning: reopenWarning(personIds.map(name), verb) };
 }
 
 /**
@@ -327,4 +334,100 @@ export function newDraftStory(input: {
     block,
     citation: { id: `cit-block-${block.id}-${source.id}`, fromType: "block", fromId: block.id, toType: "block", toId: source.id },
   };
+}
+
+// ---------- deleting a line others depend on (ADR-026) ----------
+
+export interface Dependent {
+  type: "block" | "criterion" | "item";
+  id: string;
+  storyId: string;
+  text: string;
+  /** Who is asked to realign it. */
+  ownerId: string;
+}
+
+/** Lines, criteria and items that cite a block. */
+export function dependentsOf(blockId: string, ctx: DomainSnapshot): Dependent[] {
+  const out: Dependent[] = [];
+  for (const c of ctx.citations.filter((x) => x.toType === "block" && x.toId === blockId)) {
+    if (c.fromType === "block") {
+      const b = ctx.blocks.find((x) => x.id === c.fromId);
+      if (b && b.parentType === "story") out.push({ type: "block", id: b.id, storyId: b.parentId, text: b.text, ownerId: b.authorId });
+    } else if (c.fromType === "criterion") {
+      const cr = ctx.criteria.find((x) => x.id === c.fromId);
+      const lead = ctx.stories.find((s) => s.id === cr?.storyId)?.leadId;
+      if (cr && lead) out.push({ type: "criterion", id: cr.id, storyId: cr.storyId, text: `Given ${cr.given}, then ${cr.then}`, ownerId: lead });
+    } else if (c.fromType === "item") {
+      const it = ctx.items.find((x) => x.id === c.fromId);
+      if (it && isLiveItem(it) && it.parentType === "story") out.push({ type: "item", id: it.id, storyId: it.parentId, text: it.text, ownerId: it.ownerId ?? "" });
+    }
+  }
+  return out;
+}
+
+export interface DeleteImpact {
+  /** Deleted blocks that others cite, with what cites them. */
+  affected: { blockId: string; text: string; dependents: Dependent[] }[];
+  warning: string;
+}
+
+const clip = (t: string, n = 60) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+
+/** What a set of ops would leave unsourced, and the warning that says so before anyone confirms. */
+export function deleteImpact(ops: NotebookOp[], ctx: DomainSnapshot): DeleteImpact {
+  const affected = ops
+    .filter((o): o is { op: "deleteBlock"; id: string } => o.op === "deleteBlock")
+    .map((o) => ({ blockId: o.id, text: ctx.blocks.find((b) => b.id === o.id)?.text ?? o.id, dependents: dependentsOf(o.id, ctx) }))
+    .filter((a) => a.dependents.length > 0);
+  const warning = affected
+    .map((a) => {
+      const n = a.dependents.length;
+      return `${n} ${n === 1 ? "thing cites" : "things cite"} "${clip(a.text)}": ${a.dependents.map((d) => `"${clip(d.text, 40)}"`).join(", ")}. Deleting it leaves ${n === 1 ? "it" : "them"} unsourced, and each gets a talking point to realign.`;
+    })
+    .join(" ");
+  return { affected, warning };
+}
+
+/** The realignment talking points a confirmed delete creates, one per dependent. */
+export function realignmentItems(impact: DeleteImpact, newId: () => string): { item: Item; citation: Citation | null }[] {
+  return impact.affected.flatMap((a) =>
+    a.dependents.map((d) => {
+      const id = newId();
+      const item: Item = {
+        id,
+        parentType: "story",
+        parentId: d.storyId,
+        blockId: null,
+        type: "talking_point",
+        text: `Realign: "${clip(d.text)}" lost its source "${clip(a.text)}"`,
+        status: "open",
+        ownerId: d.ownerId || null,
+        blocking: false,
+        requiredStanceIds: [],
+        stanceRound: 1,
+      };
+      // Points the talking point at the thing to realign, so the panel can link to it.
+      const citation: Citation | null =
+        d.type === "block" ? { id: `cit-item-${id}-${d.id}`, fromType: "item", fromId: id, toType: "block", toId: d.id } : null;
+      return { item, citation };
+    }),
+  );
+}
+
+/** A section's current lines, as the editor would send them. */
+export function sectionLines(storyId: string, section: string, ctx: DomainSnapshot): SectionLine[] {
+  return ctx.blocks
+    .filter((b) => b.parentType === "story" && b.parentId === storyId && b.section === section)
+    .sort((a, b) => a.order - b.order)
+    .map((b) => {
+      const item = ctx.items.find((i) => i.blockId === b.id && isLiveItem(i));
+      return {
+        blockId: b.id,
+        itemId: item?.id ?? null,
+        itemType: item?.type ?? null,
+        text: b.text,
+        itemText: item && item.text !== b.text ? item.text : undefined,
+      };
+    });
 }

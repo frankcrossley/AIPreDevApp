@@ -2,7 +2,8 @@
 import { evaluateBuiltRight, evaluateRightThing } from "@/domain/checks";
 import { STATE_LABELS, meterOf } from "@/domain/backlog";
 import { notebookView } from "@/domain/notebook-view";
-import { panelSections } from "@/domain/panel";
+import { forThisItem } from "@/domain/panel";
+import { canTriage } from "@/domain/triage";
 import type { CheckResult, DomainSnapshot, Story } from "@/domain/types";
 import { anchorFor } from "@/domain/anchors";
 import { storyEvents } from "@/server/workspace";
@@ -23,9 +24,16 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
   const builtRight = evaluateBuiltRight(story, ctx);
 
   const sections = template?.sections ?? [];
-  const view = notebookView(story, ctx, sections.filter((x) => x !== CRITERIA_SECTION));
+  const now = new Date();
+  const view = notebookView(story, ctx, sections.filter((x) => x !== CRITERIA_SECTION), actorId, now);
   const criteria = ctx.criteria.filter((c) => c.storyId === story.id);
-  const panel = panelSections(story, ctx);
+  const panel = forThisItem(story, ctx, now, actorId);
+  const expired = ctx.drafts
+    .filter((d) => d.targetType === "story" && d.targetId === story.id && d.status === "expired")
+    .map((d) => {
+      const permission = canTriage(actorId, d, ctx);
+      return { id: d.id, text: d.text, author: name(d.authorId), restoreReason: permission.ok ? null : permission.reason };
+    });
   const events = await storyEvents(story.id);
 
   return (
@@ -95,6 +103,12 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
               initialLines={v.lines}
               chips={view.chips}
               sources={view.sources}
+              mode={view.mode}
+              lead={view.lead}
+              suggestionsUnder={view.suggestionsUnder}
+              ownSuggested={view.ownSuggested}
+              topSuggestions={v.topSuggestions}
+              ownRemovals={v.ownRemovals}
             />
           );
         })}
@@ -104,7 +118,9 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
         </p>
       </main>
       <RightPanel
+        storyId={story.id}
         panel={panel}
+        expired={expired}
         details={[
           ["Lead", name(story.leadId)],
           ["Template", template?.name ?? "none"],
@@ -112,8 +128,7 @@ export async function StoryView({ story, ctx, actorId }: { story: Story; ctx: Do
           ["Jira", story.jiraKey ?? "Not exported"],
           ["Signed off", story.signedOffBy ? `${name(story.signedOffBy)}` : "No"],
         ]}
-        activity={events.map((e) => ({ id: e.id, who: name(e.actorId), what: e.type, when: e.createdAt.toISOString(), payload: e.payloadJson }))}
-        actorId={actorId}
+        activity={events.map((e) => ({ id: e.id, who: name(e.actorId), what: e.type, when: e.createdAt.toISOString() }))}
       />
     </>
   );

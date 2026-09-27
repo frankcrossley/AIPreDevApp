@@ -8,8 +8,9 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createStoryAction, saveSectionAction, setBlockingAction } from "@/app/actions";
-import type { ChipInfo, EditorLine, LineSource } from "@/domain/notebook-view";
+import { createStoryAction, saveSectionAction, setBlockingAction, withdrawSuggestionActionUI } from "@/app/actions";
+import type { ChipInfo, EditorLine, LineSource, SuggestionView } from "@/domain/notebook-view";
+import { SuggestionList } from "./notebook/SuggestionList";
 import { CHIP_LABELS, NotebookContext, NotebookLine, newClientId } from "./notebook/line";
 
 const AUTOSAVE_MS = 700;
@@ -22,10 +23,18 @@ interface Props {
   initialLines: EditorLine[];
   chips: Record<string, ChipInfo>;
   sources: Record<string, LineSource>;
+  /** `suggesting` for everyone but the lead (ADR-025). */
+  mode: "direct" | "suggesting";
+  lead: string;
+  suggestionsUnder: Record<string, SuggestionView[]>;
+  ownSuggested: Record<string, string>;
+  topSuggestions: SuggestionView[];
+  ownRemovals: { id: string; text: string }[];
 }
 
 type SaveState =
   | { kind: "saved" }
+  | { kind: "suggested" }
   | { kind: "saving" }
   | { kind: "unsaved" }
   | { kind: "error"; message: string }
@@ -74,7 +83,21 @@ function toLines(editor: Editor) {
   return lines;
 }
 
-export function SectionEditor({ storyId, epicId, section, required, initialLines, chips, sources }: Props) {
+export function SectionEditor({
+  storyId,
+  epicId,
+  section,
+  required,
+  initialLines,
+  chips,
+  sources,
+  mode,
+  lead,
+  suggestionsUnder,
+  ownSuggested,
+  topSuggestions,
+  ownRemovals,
+}: Props) {
   const router = useRouter();
   const [state, setState] = useState<SaveState>({ kind: "saved" });
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,7 +114,11 @@ export function SectionEditor({ storyId, epicId, section, required, initialLines
       setState({ kind: "saving" });
       try {
         const result = await saveSectionAction(storyId, section, toLines(editor), confirmReopen);
-        if (result.status === "needs_confirmation") {
+        if (result.status === "suggested") {
+          holding.current = false;
+          lastSaved.current = snapshot;
+          setState(JSON.stringify(editor.getJSON()) === JSON.stringify(snapshot) ? { kind: "suggested" } : { kind: "unsaved" });
+        } else if (result.status === "needs_confirmation") {
           holding.current = true;
           setState({ kind: "confirm", warning: result.warning });
         } else {
@@ -193,9 +220,26 @@ export function SectionEditor({ storyId, epicId, section, required, initialLines
       setBlocking: (itemId: string, blocking: boolean) => {
         void setBlockingAction(itemId, blocking).then(() => router.refresh());
       },
+      directReason: mode === "direct" ? null : `${lead} is the lead`,
+      suggestionsUnder,
+      ownSuggested,
     }),
-    [chips, sources, required, router],
+    [chips, sources, required, router, mode, lead, suggestionsUnder, ownSuggested],
   );
+
+  // Keep the editor in step with the server when someone else changes this section (the lead
+  // accepting a suggestion from the panel, say), but never while this person has unsaved typing.
+  const serverKey = JSON.stringify(initialLines.map((l) => [l.blockId, l.itemType, l.text]));
+  useEffect(() => {
+    if (!editor || (state.kind !== "saved" && state.kind !== "suggested") || timer.current || inFlight.current || holding.current) return;
+    const current = JSON.stringify(toLines(editor).filter((l) => l.text.trim()).map((l) => [l.blockId, l.itemType, l.text.trim()]));
+    if (current === serverKey) return;
+    const doc = toDoc(initialLines);
+    editor.commands.setContent(doc, { emitUpdate: false });
+    lastSaved.current = doc;
+    // Only re-sync when the server's content changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey, editor]);
 
   const turnInto = (type: string) => {
     if (!editor) return;
@@ -234,8 +278,23 @@ export function SectionEditor({ storyId, epicId, section, required, initialLines
       <div className="flex items-baseline gap-3">
         <h2 className="font-mono text-xs uppercase tracking-wide text-muted">{section}</h2>
         <span data-testid="save-state" className="font-mono text-[11px] text-muted" aria-live="polite">
-          {state.kind === "saving" ? "Saving" : state.kind === "unsaved" ? "Not saved yet" : state.kind === "error" ? `Not saved: ${state.message}` : state.kind === "saved" ? "Saved" : ""}
+          {state.kind === "saving"
+            ? "Saving"
+            : state.kind === "unsaved"
+              ? "Not saved yet"
+              : state.kind === "error"
+                ? `Not saved: ${state.message}`
+                : state.kind === "suggested"
+                  ? `Suggested · ${lead} reviews`
+                  : state.kind === "saved"
+                    ? "Saved"
+                    : ""}
         </span>
+        {mode === "suggesting" && (
+          <span data-testid="suggesting" title={`Your edits are suggestions until ${lead}, the lead, accepts them`} className="rounded border border-dashed border-agreed px-1.5 font-mono text-[10px] uppercase tracking-wide text-agreed">
+            Suggesting
+          </span>
+        )}
       </div>
       {state.kind === "confirm" && editor && (
         <div role="alert" data-testid="reopen-warning" className="mt-2 rounded border border-alert bg-alert-bg px-3 py-2 text-sm text-ink">
@@ -257,6 +316,19 @@ export function SectionEditor({ storyId, epicId, section, required, initialLines
             </button>
           </div>
         </div>
+      )}
+      {topSuggestions.length > 0 && <SuggestionList suggestions={topSuggestions} />}
+      {ownRemovals.length > 0 && (
+        <ul data-testid="own-removals" className="mt-1 space-y-1 text-sm">
+          {ownRemovals.map((r) => (
+            <li key={r.id} className="rounded border border-dashed border-agreed px-2 py-1 text-muted">
+              You suggested removing <span className="line-through">{r.text}</span>{" "}
+              <button type="button" className="text-agreed hover:underline" onClick={() => void withdrawSuggestionActionUI(r.id).then(() => router.refresh())}>
+                Withdraw
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
       {notice && (
         <p role="status" className="mt-2 text-sm text-muted">

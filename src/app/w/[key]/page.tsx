@@ -11,6 +11,6 @@ export default async function WorkspacePage({ params }: { params: Promise<{ key:
   const story = ctx.stories.find((s) => s.key === key);
   if (story) return <StoryView story={story} ctx={ctx} actorId={actorId} />;
   const epic = ctx.epics.find((e) => e.key === key);
-  if (epic) return <EpicView epic={epic} ctx={ctx} />;
+  if (epic) return <EpicView epic={epic} ctx={ctx} actorId={actorId} />;
   notFound();
 }

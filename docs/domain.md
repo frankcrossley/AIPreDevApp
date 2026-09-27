@@ -14,8 +14,8 @@
 | **Source** | id, kind (`call`, `survey`, `ticket`, `doc`, `chat`, `code`, `adr`), title, date, uri | Imported or seeded. |
 | **Excerpt** | id, sourceId, text, locator (timestamp, line or row), kind (`quote`, `theme`), note | The unit you cite. Quoted text must be an exact substring of the source. |
 | **Citation** | id, fromType (`block`, `item`, `criterion`, `promise`), fromId, toType (`block`, `excerpt`), toId | Every sourced claim resolves through a citation. The `citations[]` on other entities are these rows, not stored fields. |
-| **Draft** | id, targetType, targetId (nullable), text, authorId, excerptId or sourceId, createdAt, expiresAt, status (`pending`, `accepted`, `merged`, `rejected`, `expired`), triagedBy, triagedAt, resultBlockId | Anything added outside a session. |
-| **HatNote** | id, hat (`qa`, `arch`, `eng`, `sec`, `pm`), targetType, targetId, kind (`challenge`, `gap`, `conflict`, `suggestion`), text, refs[], status (`open`, `accepted`, `dismissed`) | Challenges, shown in context and in the right panel. |
+| **Draft** | id, kind (`note`, `suggestion`), targetType, targetId (nullable), text, authorId, excerptId or sourceId, createdAt, expiresAt, status (`pending`, `accepted`, `merged`, `rejected`, `expired`, `withdrawn`), triagedBy, triagedAt, resultBlockId; for suggestions: section, op (`add`, `edit`, `remove`, `chip`), blockId, afterBlockId, itemType, hatNoteId | Anything added outside a session. |
+| **HatNote** | id, hat (`qa`, `arch`, `eng`, `sec`, `pm`), targetType (incl. `draft`), targetId, kind (`challenge`, `gap`, `conflict`, `suggestion`), text, refs[], status (`open`, `accepted`, `dismissed`), moveToId | Challenges, shown in context and in the right panel. |
 | **Criterion** | id, storyId, given, when, then, citations[], origin (`notes`, `hat`), hat, confirmedBy | Acceptance criteria. A criterion with `origin: hat` must be confirmed by a person. |
 | **Prfaq** | id, epicId, headline, subhead, problem, whatChanges, customerQuoteExcerptId, successMeasure, state (`draft`, `agreed`) | One per epic whose template requires it. |
 | **Promise** | id, prfaqId, text | A customer-facing promise. Each story serves one. |
@@ -44,7 +44,8 @@
 - `expiresAt` is whichever comes first: `createdAt + template.draftExpiryDays` (default 10), or the start of the next session.
 - Expired drafts are archived, never deleted, and can be restored.
 - Accepting a draft creates a Block or Item on the target, marked as unagreed. It never edits agreed content directly.
-- Only the target's lead, or a delegate, can triage.
+- Only the target's lead, or a delegate, can triage. (Delegates aren't modelled in the prototype.)
+- Only the story's lead edits its notebook directly; everyone else's edits are suggestions, which are drafts (ADR-025).
 
 ## Floor checks (cannot be removed)
 

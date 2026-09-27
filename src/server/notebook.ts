@@ -2,7 +2,9 @@
 // the ops they produce and logs every change as an Event.
 import { randomUUID } from "node:crypto";
 import { isLiveItem } from "@/domain/checks";
-import { diffSection, reopenImpact, setBlocking, type NotebookOp, type SectionLine } from "@/domain/notebook";
+import { deleteImpact, diffSection, realignmentItems, reopenImpact, setBlocking, type NotebookOp, type SectionLine } from "@/domain/notebook";
+import { editsDirectly, toSuggestions } from "@/domain/suggestions";
+import type { Citation, Draft, Item } from "@/domain/types";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "./prisma";
 import { reopenWrites } from "./lifecycle";
@@ -10,11 +12,12 @@ import { loadSnapshot } from "./snapshot";
 
 export type SaveResult =
   | { status: "saved"; reopened: boolean }
+  | { status: "suggested"; pending: number }
   | { status: "needs_confirmation"; warning: string; personIds: string[] };
 
 const shortId = (prefix: string) => `${prefix}-${randomUUID().slice(0, 8)}`;
 
-function opWrites(db: Db, ops: NotebookOp[], storyId: string, actorId: string, now: Date): Prisma.PrismaPromise<unknown>[] {
+export function opWrites(db: Db, ops: NotebookOp[], storyId: string, actorId: string, now: Date): Prisma.PrismaPromise<unknown>[] {
   const event = (type: string, payload: object) =>
     db.event.create({
       data: { id: randomUUID(), type, actorId, subjectType: "story", subjectId: storyId, payloadJson: JSON.stringify(payload), createdAt: now },
@@ -66,18 +69,58 @@ export async function saveSection(
   const template = ctx.templates.find((t) => t.id === story.templateId);
   if (!template?.sections.includes(input.section)) throw new Error(`${input.section} isn't a section of ${story.key}`);
 
+  // Everyone but the lead suggests (ADR-025).
+  if (!editsDirectly(input.actorId, story)) {
+    const changes = toSuggestions({ ctx, story, section: input.section, lines: input.lines, authorId: input.actorId, now, newId: () => shortId("sg") });
+    await db.$transaction([
+      ...changes.upserts.map((d) => db.draft.upsert({ where: { id: d.id }, create: d, update: d })),
+      ...changes.withdrawIds.map((id) => db.draft.update({ where: { id }, data: { status: "withdrawn" } })),
+      ...(changes.upserts.length || changes.withdrawIds.length
+        ? [eventWrite(db, "suggestion.updated", input.actorId, story.id, { section: input.section, changed: changes.upserts.map((d) => d.id), withdrawn: changes.withdrawIds }, now)]
+        : []),
+    ]);
+    const pending = ctx.drafts.filter((d) => d.kind === "suggestion" && d.status === "pending" && d.targetId === story.id && d.authorId === input.actorId && d.section === input.section && !changes.withdrawIds.includes(d.id)).length;
+    return { status: "suggested", pending: pending + changes.upserts.filter((d) => !ctx.drafts.some((x) => x.id === d.id)).length };
+  }
+
   const ops = diffSection({ ctx, storyId: story.id, section: input.section, lines: input.lines, actorId: input.actorId, now, newId: () => shortId("x") });
   if (!ops.length) return { status: "saved", reopened: false };
 
   const impact = reopenImpact(ops, story, ctx);
-  if (impact.reopen && !input.confirmReopen) {
-    return { status: "needs_confirmation", warning: impact.warning, personIds: impact.personIds };
+  const deletes = deleteImpact(ops, ctx);
+  if ((impact.reopen || deletes.affected.length) && !input.confirmReopen) {
+    return {
+      status: "needs_confirmation",
+      warning: [impact.reopen ? impact.warning : "", deletes.warning].filter(Boolean).join(" "),
+      personIds: impact.personIds,
+    };
   }
-  // The reopen and the edit land together or not at all.
+  // The reopen, the edit and any realignment land together or not at all.
   const reopen = impact.reopen ? reopenWrites(db, story, impact.editedIds, ctx, input.actorId).writes : [];
-  await db.$transaction([...reopen, ...opWrites(db, ops, story.id, input.actorId, now)]);
+  const realign = realignmentItems(deletes, () => shortId("rl"));
+  await db.$transaction([
+    ...reopen,
+    ...deletes.affected.map((a) => db.citation.deleteMany({ where: { toType: "block", toId: a.blockId } })),
+    ...opWrites(db, ops, story.id, input.actorId, now),
+    ...realign.flatMap(({ item, citation }) => [
+      itemCreate(db, item),
+      ...(citation ? [db.citation.create({ data: citation })] : []),
+      eventWrite(db, "item.created", input.actorId, item.parentId, { itemId: item.id, type: item.type, text: item.text, reason: "realign" }, now),
+    ]),
+  ]);
   return { status: "saved", reopened: impact.reopen };
 }
+
+export const eventWrite = (db: Db, type: string, actorId: string | null, storyId: string, payload: object, now: Date) =>
+  db.event.create({ data: { id: randomUUID(), type, actorId, subjectType: "story", subjectId: storyId, payloadJson: JSON.stringify(payload), createdAt: now } });
+
+export const itemCreate = (db: Db, item: Item) => {
+  const { requiredStanceIds, ...rest } = item;
+  return db.item.create({ data: { ...rest, requiredStanceIdsJson: JSON.stringify(requiredStanceIds) } });
+};
+
+export const draftWrite = (db: Db, d: Draft) => db.draft.update({ where: { id: d.id }, data: d });
+export const citationWrites = (db: Db, citations: Citation[]) => citations.map((c) => db.citation.create({ data: c }));
 
 /**
  * Marks a question blocking or not. On an agreed, ready or exported story that changes agreed

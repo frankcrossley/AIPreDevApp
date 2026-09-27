@@ -56,6 +56,8 @@ export async function loadSnapshot(db: Db): Promise<D.DomainSnapshot> {
       ...d,
       targetType: d.targetType as D.ParentType | null,
       status: d.status as D.DraftStatus,
+      kind: d.kind as D.Draft["kind"],
+      op: d.op as D.SuggestionOp | null,
     })),
     hatNotes: hatNotes.map(({ refsJson, ...h }) => ({
       ...h,

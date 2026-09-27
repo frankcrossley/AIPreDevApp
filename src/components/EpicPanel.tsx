@@ -1,6 +1,8 @@
 "use client";
 // Right column for an epic: Alignment · For this epic · Details. Opens on Alignment.
 import { useState } from "react";
+import type { PanelCard } from "@/domain/panel";
+import { Card } from "./RightPanel";
 
 interface Alignment {
   readBacks: { personId: string; name: string; text: string | null; assessment: string | null; note: string | null }[];
@@ -11,8 +13,8 @@ interface Alignment {
 
 const ASSESSMENT: Record<string, string> = { matches: "Matches", diverges: "Diverges", too_close: "Repeats the PRFAQ", pending: "Not assessed" };
 
-export function EpicPanel({ alignment, details }: { alignment: Alignment; details: [string, string][] }) {
-  const tabs = ["Alignment", "For this epic", "Details"];
+export function EpicPanel({ epicId, alignment, details, cards }: { epicId: string; alignment: Alignment; details: [string, string][]; cards: PanelCard[] }) {
+  const tabs = ["Alignment", `For this epic · ${cards.length}`, "Details"];
   const [tab, setTab] = useState(0);
   return (
     <aside data-testid="right-panel" className="overflow-y-auto border-l border-hairline bg-panel px-4 py-3 text-sm">
@@ -62,7 +64,16 @@ export function EpicPanel({ alignment, details }: { alignment: Alignment; detail
           </ul>
         </div>
       )}
-      {tab === 1 && <p role="tabpanel" className="mt-4 text-muted">Drafts and talking points for the epic arrive with the right panel build.</p>}
+      {tab === 1 && (
+        <div role="tabpanel">
+          {cards.length === 0 && <p className="mt-4 text-muted">Nothing waiting on the epic.</p>}
+          <ul className="mt-4 space-y-2">
+            {cards.map((c) => (
+              <Card key={c.id} card={c} storyId={epicId} />
+            ))}
+          </ul>
+        </div>
+      )}
       {tab === 2 && (
         <dl role="tabpanel" className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
           {details.map(([k, v]) => (

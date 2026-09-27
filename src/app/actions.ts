@@ -8,6 +8,18 @@ import { VIEWING_AS_COOKIE, currentActorId } from "@/server/actor";
 import { prisma } from "@/server/db";
 import { createDraftStory } from "@/server/lifecycle";
 import { saveSection, setItemBlocking, type SaveResult } from "@/server/notebook";
+import {
+  acceptDraftAction,
+  answerHatNoteAction,
+  dismissHatNoteAction,
+  mergeDraftAction,
+  moveDraftAction,
+  putToSessionAction,
+  rejectDraftAction,
+  restoreDraftAction,
+  withdrawSuggestionAction,
+  type ActionResult,
+} from "@/server/triage";
 
 const refresh = () => revalidatePath("/w", "layout");
 
@@ -34,7 +46,7 @@ function checkLines(lines: unknown): SectionLine[] {
 
 export async function saveSectionAction(storyId: string, section: string, lines: unknown, confirmReopen: boolean): Promise<SaveResult> {
   const result = await saveSection(prisma, { storyId, section, lines: checkLines(lines), actorId: await actor(), confirmReopen });
-  if (result.status === "saved") refresh();
+  if (result.status !== "needs_confirmation") refresh();
   return result;
 }
 
@@ -47,4 +59,60 @@ export async function createStoryAction(epicId: string, title: string, sourceBlo
   const { key } = await createDraftStory(prisma, { epicId, title, sourceBlockId, actorId: await actor() });
   refresh();
   return { key };
+}
+
+// ---------- right panel: triage, suggestions, hat notes, session ----------
+
+export async function acceptDraftActionUI(draftId: string, confirmReopen: boolean, section?: string): Promise<ActionResult> {
+  const r = await acceptDraftAction(prisma, { draftId, actorId: await actor(), confirmReopen, section });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function mergeDraftActionUI(draftId: string, intoBlockId: string): Promise<ActionResult> {
+  const r = await mergeDraftAction(prisma, { draftId, intoBlockId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function rejectDraftActionUI(draftId: string): Promise<ActionResult> {
+  const r = await rejectDraftAction(prisma, { draftId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function moveDraftActionUI(draftId: string, toId: string): Promise<ActionResult> {
+  const r = await moveDraftAction(prisma, { draftId, toId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function restoreDraftActionUI(draftId: string): Promise<ActionResult> {
+  const r = await restoreDraftAction(prisma, { draftId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function withdrawSuggestionActionUI(draftId: string): Promise<ActionResult> {
+  const r = await withdrawSuggestionAction(prisma, { draftId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function answerHatNoteActionUI(noteId: string, text: string, asQuestion: boolean): Promise<ActionResult> {
+  const r = await answerHatNoteAction(prisma, { noteId, text, asQuestion, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function dismissHatNoteActionUI(noteId: string): Promise<ActionResult> {
+  const r = await dismissHatNoteAction(prisma, { noteId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
+}
+
+export async function putToSessionActionUI(sessionId: string, subjectId: string, storyId: string): Promise<ActionResult> {
+  const r = await putToSessionAction(prisma, { sessionId, subjectId, storyId, actorId: await actor() });
+  if (r.status === "done") refresh();
+  return r;
 }

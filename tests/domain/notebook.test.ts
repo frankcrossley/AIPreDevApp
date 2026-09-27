@@ -11,6 +11,8 @@ import {
   newDraftStory,
   parsePrefix,
   reopenImpact,
+  deleteImpact,
+  realignmentItems,
   reopenWarning,
   setBlocking,
   type SectionLine,
@@ -53,13 +55,20 @@ describe("diffSection", () => {
     expect(diff(ctx, "What we heard", lines(ctx, "What we heard"))).toEqual([]);
   });
 
-  it("a new prefixed line becomes a block and an item owned by its author", () => {
+  it("a new chip line becomes a block and an item owned by its author", () => {
     const ctx = seeded();
-    const ops = diff(ctx, "Edge cases", [...lines(ctx, "Edge cases"), { blockId: null, itemId: null, itemType: null, text: "? What about downgrades" }], "marcus");
+    const ops = diff(ctx, "Edge cases", [...lines(ctx, "Edge cases"), { blockId: null, itemId: null, itemType: "question", text: "What about downgrades" }], "marcus");
     const block = ops.find((o) => o.op === "createBlock")!;
     const item = ops.find((o) => o.op === "createItem")!;
     expect(block).toMatchObject({ op: "createBlock", block: { section: "Edge cases", order: 3, text: "What about downgrades", authorId: "marcus" } });
     expect(item).toMatchObject({ op: "createItem", item: { type: "question", text: "What about downgrades", ownerId: "marcus", blocking: false, blockId: block.op === "createBlock" ? block.block.id : "" } });
+  });
+
+  it("saved text that starts with a prefix stays plain text (typed prefixes only, ADR-027)", () => {
+    const ctx = seeded();
+    const ops = diff(ctx, "Edge cases", [...lines(ctx, "Edge cases"), { blockId: null, itemId: null, itemType: null, text: "risk: is a word we use for invoices" }]);
+    expect(ops.map((o) => o.op)).toEqual(["createBlock"]);
+    expect(ops[0]).toMatchObject({ block: { text: "risk: is a word we use for invoices" } });
   });
 
   it("a new decision asks the lead, the author and the epic's tech lead for stances", () => {
@@ -281,5 +290,36 @@ describe("Turn into → Story", () => {
     const base = { epic: ctx.epics[0], ctx, actorId: "priya", sourceBlockId: null, now: NOW };
     expect(() => newDraftStory({ ...base, title: "  " })).toThrow();
     expect(() => newDraftStory({ ...base, title: "x".repeat(201) })).toThrow(/200/);
+  });
+});
+
+describe("deleting a line others cite (ADR-026)", () => {
+  it("lists what depends on b4 and builds the warning", () => {
+    const ctx = seeded();
+    const ops = diff(ctx, "What we think", lines(ctx, "What we think").filter((l) => l.blockId !== "b4"));
+    const impact = deleteImpact(ops, ctx);
+    expect(impact.affected.map((a) => [a.blockId, a.dependents.map((d) => `${d.type}:${d.id}`)])).toEqual([
+      ["b4", ["block:b5", "criterion:ac1"]],
+    ]);
+    expect(impact.warning).toContain('2 things cite "Upgrades apply immediately, charged by the day."');
+    expect(impact.warning).toContain("unsourced");
+  });
+
+  it("creates one realignment talking point per dependent, owned by whoever wrote it", () => {
+    const ctx = seeded();
+    const ops = diff(ctx, "What we think", lines(ctx, "What we think").filter((l) => l.blockId !== "b4"));
+    let n = 0;
+    const made = realignmentItems(deleteImpact(ops, ctx), () => `rl-${++n}`);
+    expect(made.map((m) => [m.item.type, m.item.ownerId, m.citation?.toId ?? null])).toEqual([
+      ["talking_point", "priya", "b5"],
+      ["talking_point", "priya", null],
+    ]);
+    expect(made[0].item.text).toBe('Realign: "Immediately means both the plan and the invoice line." lost its source "Upgrades apply immediately, charged by the day."');
+  });
+
+  it("deleting a line nobody cites has no impact", () => {
+    const ctx = seeded();
+    const ops = diff(ctx, "Edge cases", lines(ctx, "Edge cases").filter((l) => l.blockId !== "b7"));
+    expect(deleteImpact(ops, ctx)).toEqual({ affected: [], warning: "" });
   });
 });

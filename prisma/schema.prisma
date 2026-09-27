@@ -143,6 +143,13 @@ model Draft {
   triagedBy     String?
   triagedAt     DateTime?
   resultBlockId String?
+  kind          String    @default("note")
+  section       String?
+  op            String?
+  blockId       String?
+  afterBlockId  String?
+  itemType      String?
+  hatNoteId     String?
 }
 
 model HatNote {
@@ -154,6 +161,7 @@ model HatNote {
   text       String
   refsJson   String
   status     String
+  moveToId   String?
 }
 
 model Criterion {
