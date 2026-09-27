@@ -178,6 +178,8 @@ export interface Draft {
   itemType: string | null;
   /** Set when the suggestion answers a hat note; accepting it marks the note answered. */
   hatNoteId: string | null;
+  /** Edit suggestions: the line's text when the suggestion was made, to spot a stale one. */
+  baseText: string | null;
 }
 
 export type Hat = "qa" | "arch" | "eng" | "sec" | "pm";

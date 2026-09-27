@@ -101,6 +101,8 @@ export function SectionEditor({
   const router = useRouter();
   const [state, setState] = useState<SaveState>({ kind: "saved" });
   const [notice, setNotice] = useState<string | null>(null);
+  // A chip action that needs confirming first (marking a question blocking on an agreed story).
+  const [pendingConfirm, setPendingConfirm] = useState<{ warning: string; run: () => void } | null>(null);
   const lastSaved = useRef<JSONContent>(toDoc(initialLines));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
@@ -218,7 +220,16 @@ export function SectionEditor({
       sources,
       required,
       setBlocking: (itemId: string, blocking: boolean) => {
-        void setBlockingAction(itemId, blocking).then(() => router.refresh());
+        const attempt = (confirmReopen: boolean) =>
+          void setBlockingAction(itemId, blocking, confirmReopen).then((r) => {
+            if (r.status === "needs_confirmation") setPendingConfirm({ warning: r.warning, run: () => attempt(true) });
+            else if (r.status === "refused") setNotice(r.reason);
+            else {
+              setPendingConfirm(null);
+              router.refresh();
+            }
+          });
+        attempt(false);
       },
       directReason: mode === "direct" ? null : `${lead} is the lead`,
       suggestionsUnder,
@@ -235,8 +246,9 @@ export function SectionEditor({
     const current = JSON.stringify(toLines(editor).filter((l) => l.text.trim()).map((l) => [l.blockId, l.itemType, l.text.trim()]));
     if (current === serverKey) return;
     const doc = toDoc(initialLines);
-    editor.commands.setContent(doc, { emitUpdate: false });
     lastSaved.current = doc;
+    // Outside React's commit phase: setContent re-renders node views synchronously.
+    queueMicrotask(() => editor.commands.setContent(doc, { emitUpdate: false }));
     // Only re-sync when the server's content changes, not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey, editor]);
@@ -291,7 +303,7 @@ export function SectionEditor({
                     : ""}
         </span>
         {mode === "suggesting" && (
-          <span data-testid="suggesting" title={`Your edits are suggestions until ${lead}, the lead, accepts them`} className="rounded border border-dashed border-agreed px-1.5 font-mono text-[10px] uppercase tracking-wide text-agreed">
+          <span data-testid="suggesting" title={`Your edits are suggestions until ${lead}, the lead, accepts them`} className="rounded border border-dashed border-muted px-1.5 font-mono text-[10px] uppercase tracking-wide text-muted">
             Suggesting
           </span>
         )}
@@ -317,11 +329,24 @@ export function SectionEditor({
           </div>
         </div>
       )}
+      {pendingConfirm && (
+        <div role="alert" data-testid="chip-warning" className="mt-2 rounded border border-alert bg-alert-bg px-3 py-2 text-sm">
+          <p>{pendingConfirm.warning}</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" className="rounded bg-ink px-3 py-1 text-paper" onClick={() => pendingConfirm.run()}>
+              Save and reopen
+            </button>
+            <button type="button" className="rounded border border-line px-3 py-1" onClick={() => setPendingConfirm(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {topSuggestions.length > 0 && <SuggestionList suggestions={topSuggestions} />}
       {ownRemovals.length > 0 && (
         <ul data-testid="own-removals" className="mt-1 space-y-1 text-sm">
           {ownRemovals.map((r) => (
-            <li key={r.id} className="rounded border border-dashed border-agreed px-2 py-1 text-muted">
+            <li key={r.id} className="rounded border border-dashed border-muted px-2 py-1 text-muted">
               You suggested removing <span className="line-through">{r.text}</span>{" "}
               <button type="button" className="text-agreed hover:underline" onClick={() => void withdrawSuggestionActionUI(r.id).then(() => router.refresh())}>
                 Withdraw

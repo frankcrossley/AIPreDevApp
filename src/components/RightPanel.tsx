@@ -72,17 +72,18 @@ export function Card({ card, storyId }: { card: PanelCard; storyId: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ warning: string; retry: () => void } | null>(null);
   const [writing, setWriting] = useState<null | "answer" | "add_to_page">(null);
   const [text, setText] = useState("");
   const [merging, setMerging] = useState(false);
   const [mergeInto, setMergeInto] = useState("");
 
-  const run = (fn: () => Promise<ActionResult>) =>
+  // Runs an action; if it needs confirming, keeps a retry that confirms.
+  const run = (fn: (confirmReopen: boolean) => Promise<ActionResult>, confirmReopen = false) =>
     start(async () => {
-      const r = await fn();
+      const r = await fn(confirmReopen);
       if (r.status === "refused") setMessage(r.reason);
-      else if (r.status === "needs_confirmation") setConfirm(r.warning);
+      else if (r.status === "needs_confirmation") setConfirm({ warning: r.warning, retry: () => run(fn, true) });
       else {
         setMessage(r.message ?? null);
         setConfirm(null);
@@ -106,7 +107,7 @@ export function Card({ card, storyId }: { card: PanelCard; storyId: string }) {
       case "dismiss":
         return run(() => dismissHatNoteActionUI(card.id));
       case "accept":
-        return run(() => acceptDraftActionUI(card.id, false));
+        return run((c) => acceptDraftActionUI(card.id, c));
       case "merge":
         return setMerging((m) => !m);
       case "reject":
@@ -122,7 +123,7 @@ export function Card({ card, storyId }: { card: PanelCard; storyId: string }) {
   return (
     <li data-testid={`card-${card.id}`} className={`rounded border px-3 py-2 ${TONE[card.tone]}`}>
       <button type="button" className="w-full text-left" onClick={() => scrollToAnchor(card.anchor)}>
-        <span className={`font-mono text-[11px] uppercase tracking-wide ${card.tone === "alert" ? "text-alert" : "text-muted"}`}>{card.tag}</span>
+        <span className={`font-mono text-[11px] uppercase tracking-wide ${card.tone === "alert" ? "text-alert" : card.tone === "solid" ? "text-agreed" : "text-muted"}`}>{card.tag}</span>
         <span className="block">{card.title}</span>
         <span data-testid="card-detail" className="block text-xs text-muted">
           {card.detail}
@@ -171,7 +172,7 @@ export function Card({ card, storyId }: { card: PanelCard; storyId: string }) {
           className="mt-2 flex flex-col gap-1"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => answerHatNoteActionUI(card.id, text, writing === "add_to_page"));
+            run((c) => answerHatNoteActionUI(card.id, text, writing === "add_to_page", c));
           }}
         >
           <label className="text-xs text-muted" htmlFor={`answer-${card.id}`}>
@@ -202,17 +203,17 @@ export function Card({ card, storyId }: { card: PanelCard; storyId: string }) {
               </option>
             ))}
           </select>
-          <button type="button" disabled={!mergeInto || pending} onClick={() => run(() => mergeDraftActionUI(card.id, mergeInto))} className="self-start rounded bg-ink px-2 py-0.5 text-paper disabled:opacity-50">
+          <button type="button" disabled={!mergeInto || pending} onClick={() => run((c) => mergeDraftActionUI(card.id, mergeInto, c))} className="self-start rounded bg-ink px-2 py-0.5 text-paper disabled:opacity-50">
             Merge
           </button>
         </div>
       )}
       {confirm && (
         <div role="alert" className="mt-2 rounded border border-alert bg-alert-bg px-2 py-1 text-xs">
-          <p>{confirm}</p>
+          <p>{confirm.warning}</p>
           <div className="mt-1 flex gap-2">
-            <button type="button" className="rounded bg-ink px-2 py-0.5 text-paper" onClick={() => run(() => acceptDraftActionUI(card.id, true))}>
-              Accept and reopen
+            <button type="button" className="rounded bg-ink px-2 py-0.5 text-paper" onClick={() => confirm.retry()}>
+              Confirm
             </button>
             <button type="button" className="rounded border border-line px-2 py-0.5" onClick={() => setConfirm(null)}>
               Cancel

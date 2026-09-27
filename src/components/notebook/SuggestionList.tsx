@@ -19,8 +19,8 @@ function Suggestion({ s }: { s: SuggestionView }) {
       else router.refresh();
     });
   return (
-    <li data-testid={`suggestion-${s.id}`} className="rounded border border-dashed border-agreed bg-agreed-bg/40 px-2 py-1 text-sm">
-      <span className="font-mono text-[11px] uppercase text-agreed">Suggested by {s.author}</span>{" "}
+    <li data-testid={`suggestion-${s.id}`} className="rounded border border-dashed border-muted bg-sunk px-2 py-1 text-sm">
+      <span className="font-mono text-[11px] uppercase text-muted">Suggested by {s.author}</span>{" "}
       <span className="font-mono text-[11px] text-muted">· {s.expiry}</span>
       <span className="block">{s.description}</span>
       <span className="flex gap-3 text-xs">

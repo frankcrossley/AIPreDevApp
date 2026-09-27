@@ -149,3 +149,60 @@ describe("deleting a line others cite", () => {
     ]);
   });
 });
+
+describe("every path goes through the same protections", () => {
+  it("accepting Dan's removal of a cited line asks first, then realigns its dependents", async () => {
+    const think = [
+      { blockId: "b5", itemId: null, itemType: null, text: "Immediately means both the plan and the invoice line." },
+      { blockId: "b8", itemId: null, itemType: null, text: "Show both plans as separate lines on the invoice." },
+    ];
+    await saveSection(env.db, { storyId: "bill-150", section: "What we think", lines: think, actorId: "dan", confirmReopen: false, now: NOW });
+    const sg = await env.db.draft.findFirstOrThrow({ where: { kind: "suggestion", op: "remove" } });
+    const held = await acceptDraftAction(env.db, { draftId: sg.id, actorId: "priya", confirmReopen: false, now: NOW });
+    expect(held.status).toBe("needs_confirmation");
+    if (held.status === "needs_confirmation") expect(held.warning).toContain("2 things cite");
+    await acceptDraftAction(env.db, { draftId: sg.id, actorId: "priya", confirmReopen: true, now: NOW });
+    expect(await env.db.block.findUnique({ where: { id: "b4" } })).toBeNull();
+    expect(await env.db.citation.count({ where: { toId: "b4" } })).toBe(0);
+    expect(await env.db.item.count({ where: { type: "talking_point", text: { startsWith: "Realign:" } } })).toBe(2);
+  });
+
+  it("the lead's answer on a Ready story asks before reopening it", async () => {
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
+    const input = { noteId: "hn3", actorId: "priya", text: "New event from metering.", asQuestion: false, now: NOW };
+    expect((await answerHatNoteAction(env.db, input)).status).toBe("needs_confirmation");
+    expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).state).toBe("ready");
+    expect(await answerHatNoteAction(env.db, { ...input, confirmReopen: true })).toEqual({ status: "done" });
+    expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).state).toBe("in_refinement");
+  });
+
+  it("marking blocking is lead-only on the server, and asks first on a Ready story", async () => {
+    const { setItemBlocking } = await import("@/server/notebook");
+    expect(await setItemBlocking(env.db, "it-q1", false, "sam", true)).toEqual({ status: "refused", reason: "Priya is the lead" });
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "ready", signedOffBy: "priya", signedOffAt: NOW } });
+    expect((await setItemBlocking(env.db, "it-q1", false, "priya", false)).status).toBe("needs_confirmation");
+    expect((await env.db.item.findUniqueOrThrow({ where: { id: "it-q1" } })).blocking).toBe(true);
+  });
+
+  it("merging on an Agreed story asks, then reopens", async () => {
+    await env.db.stance.deleteMany();
+    await env.db.story.update({ where: { id: "bill-150" }, data: { state: "agreed" } });
+    const { mergeDraftAction } = await import("@/server/triage");
+    expect(await mergeDraftAction(env.db, { draftId: "dr2", intoBlockId: "b7", actorId: "priya", now: NOW })).toEqual({
+      status: "needs_confirmation",
+      warning: "BILL-150 is Agreed. Accepting reopens it.",
+    });
+    expect(await mergeDraftAction(env.db, { draftId: "dr2", intoBlockId: "b7", actorId: "priya", confirmReopen: true, now: NOW })).toEqual({ status: "done" });
+    expect((await env.db.story.findUniqueOrThrow({ where: { id: "bill-150" } })).state).toBe("in_refinement");
+  });
+
+  it("failed moves and overdue drafts are refused, not thrown", async () => {
+    expect(await moveDraftAction(env.db, { draftId: "dr3", toId: "nowhere", actorId: "priya", now: NOW })).toMatchObject({ status: "refused" });
+    const later = new Date(NOW.getTime() + 3 * 86_400_000);
+    expect(await acceptDraftAction(env.db, { draftId: "dr2", actorId: "priya", confirmReopen: false, now: later })).toEqual({
+      status: "refused",
+      reason: "This draft has expired. Restore it first.",
+    });
+    expect(await putToSessionAction(env.db, { sessionId: "sess-1", subjectId: "it-q151", storyId: "bill-150", actorId: "sam", now: NOW })).toMatchObject({ status: "refused" });
+  });
+});

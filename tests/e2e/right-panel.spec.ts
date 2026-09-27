@@ -54,6 +54,17 @@ test("Only the lead can triage", async ({ page }) => {
   for (const b of agreedBefore) expect(await db.block.findUniqueOrThrow({ where: { id: b.id } })).toEqual(b);
 });
 
+test("A draft that passes its expiry leaves the panel on the next load", async ({ page }) => {
+  await openStory(page, "BILL-150");
+  await expect(page.getByTestId("card-dr2")).toBeVisible();
+  await db.draft.update({ where: { id: "dr2" }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+  await openStory(page, "BILL-150");
+  await expect(page.getByTestId("card-dr2")).toHaveCount(0);
+  expect((await db.draft.findUniqueOrThrow({ where: { id: "dr2" } })).status).toBe("expired");
+  await page.getByRole("tab", { name: "Activity" }).click();
+  await expect(page.getByTestId("expired-dr2")).toContainText("Should the invoice explain the proration?");
+});
+
 test("Expired drafts are archived, not deleted", async ({ page }) => {
   await openStory(page, "BILL-150");
   await expect(page.getByTestId("card-dr6")).toHaveCount(0);
@@ -86,7 +97,10 @@ test("Demo: suggest, then the lead accepts from the notebook", async ({ page }) 
   await page.keyboard.type("Annual plans renew mid-cycle too.");
   await expect(page.getByTestId("section-Edge cases").getByTestId("save-state")).toHaveText("Suggested · Priya reviews", { timeout: 10_000 });
   await openStory(page, "BILL-150");
-  await expect(page.getByTestId("section-Edge cases").getByTestId("own-suggestion")).toContainText("Your suggestion");
+  const own = page.getByTestId("section-Edge cases").getByTestId("own-suggestion");
+  await expect(own).toContainText(/Your suggestion · expires in \d+ days/);
+  // Drawn dashed: it's only a suggestion until the lead accepts it.
+  await expect(page.getByTestId("section-Edge cases").getByTestId("line").last()).toHaveClass(/border-dashed/);
 
   await page.getByLabel("Viewing as").selectOption({ label: "Priya" });
   await expect(page.getByLabel("Viewing as")).toHaveValue("priya");

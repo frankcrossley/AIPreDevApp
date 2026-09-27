@@ -50,9 +50,10 @@ export async function saveSectionAction(storyId: string, section: string, lines:
   return result;
 }
 
-export async function setBlockingAction(itemId: string, blocking: boolean): Promise<void> {
-  await setItemBlocking(prisma, itemId, blocking, await actor());
-  refresh();
+export async function setBlockingAction(itemId: string, blocking: boolean, confirmReopen: boolean) {
+  const r = await setItemBlocking(prisma, itemId, blocking, await actor(), confirmReopen);
+  if (r.status === "done") refresh();
+  return r;
 }
 
 export async function createStoryAction(epicId: string, title: string, sourceBlockId: string | null): Promise<{ key: string }> {
@@ -69,8 +70,8 @@ export async function acceptDraftActionUI(draftId: string, confirmReopen: boolea
   return r;
 }
 
-export async function mergeDraftActionUI(draftId: string, intoBlockId: string): Promise<ActionResult> {
-  const r = await mergeDraftAction(prisma, { draftId, intoBlockId, actorId: await actor() });
+export async function mergeDraftActionUI(draftId: string, intoBlockId: string, confirmReopen = false): Promise<ActionResult> {
+  const r = await mergeDraftAction(prisma, { draftId, intoBlockId, confirmReopen, actorId: await actor() });
   if (r.status === "done") refresh();
   return r;
 }
@@ -99,8 +100,8 @@ export async function withdrawSuggestionActionUI(draftId: string): Promise<Actio
   return r;
 }
 
-export async function answerHatNoteActionUI(noteId: string, text: string, asQuestion: boolean): Promise<ActionResult> {
-  const r = await answerHatNoteAction(prisma, { noteId, text, asQuestion, actorId: await actor() });
+export async function answerHatNoteActionUI(noteId: string, text: string, asQuestion: boolean, confirmReopen = false): Promise<ActionResult> {
+  const r = await answerHatNoteAction(prisma, { noteId, text, asQuestion, confirmReopen, actorId: await actor() });
   if (r.status === "done") refresh();
   return r;
 }

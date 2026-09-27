@@ -150,6 +150,7 @@ model Draft {
   afterBlockId  String?
   itemType      String?
   hatNoteId     String?
+  baseText      String?
 }
 
 model HatNote {

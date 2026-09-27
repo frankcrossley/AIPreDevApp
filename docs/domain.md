@@ -43,8 +43,8 @@
 
 - `expiresAt` is whichever comes first: `createdAt + template.draftExpiryDays` (default 10), or the start of the next session.
 - Expired drafts are archived, never deleted, and can be restored.
-- Accepting a draft creates a Block or Item on the target, marked as unagreed. It never edits agreed content directly.
-- Only the target's lead, or a delegate, can triage. (Delegates aren't modelled in the prototype.)
+- Accepting a note creates a Block or Item on the target, marked as unagreed. Accepting a suggestion applies its edit, removal or chip change; if that touches agreed content or orphans citations, the lead sees the warning first and the story reopens with it (ADR-015, ADR-025, ADR-026). Nothing reaches agreed content without the lead's triage.
+- Only the target's lead, or a delegate, can triage: the story lead for a story, the epic owner for an epic. (Delegates aren't modelled in the prototype.) An expired draft must be restored before it can be triaged.
 - Only the story's lead edits its notebook directly; everyone else's edits are suggestions, which are drafts (ADR-025).
 
 ## Floor checks (cannot be removed)

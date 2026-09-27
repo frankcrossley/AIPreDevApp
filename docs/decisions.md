@@ -125,6 +125,7 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 ## ADR-025 · Suggest mode: the lead edits, everyone else suggests
 **Context.** The product owner wants edits from people other than the lead to work like Word's suggestions: proposed in place, applied only when approved.
 **Decision.** `editsDirectly(person, story)` is true only for the story's lead (bolt 8 adds the scribe in session mode). Anyone else's section save goes through `toSuggestions()`, which compares their lines with the real notebook and turns the difference into Drafts of kind `suggestion`: `add` (a new line after a given line), `edit`, `remove` or `chip`. Each person's pending suggestions are reconciled on every save, so they keep their ids and expiry while the person keeps typing, and anything they take back is `withdrawn`. The author sees their suggestions applied in their own editor, dashed and labelled; the lead and others see them dashed under the line they're about, and in the right panel, with Accept and Reject. Accepting runs the same diff as a direct edit, credited to the author, and goes through the reopen warning when it touches agreed content. Answering a hat note as a non-lead is also a suggestion, and accepting it closes the note. Suggestions expire like any draft.
+Suggestions are Drafts rather than their own entity because they need exactly what drafts have: an author, an expiry, lead-only triage, and an archive.
 **Consequence.** The 02-notebook scenario "Editing agreed content reopens it" is updated: Dan's edit is a suggestion, and Priya sees the warning when she accepts it. Marking a question blocking and dismissing hat notes are lead-only.
 
 ## ADR-026 · Deleting a line others cite
@@ -136,3 +137,20 @@ Short records of the choices that shape the build. Add new ones as you go: conte
 **Context.** `risk:` or `decision:` can be ordinary words at the start of a line.
 **Decision.** Chips come only from the editor: a prefix typed at the start of a line, or "Turn into". Saved or pasted text is never turned into a chip on the server. Backspace straight after the conversion undoes it (Tiptap's `undoInputRule`), leaving the prefix as plain text.
 **Consequence.** Like Word's autocorrect, it's easy to escape and never surprising.
+
+## ADR-028 · Triage and panel rules
+**Context.** The right panel and triage need rules that the acceptance files leave open.
+**Decision.**
+- **One plan for every notebook change.** Saving, accepting, merging, answering a hat note and marking a question blocking all go through `planChange()`, so the reopen warning (ADR-015) and the dependent check (ADR-026) always apply, and the change is one transaction.
+- **Decisions needed** is exactly what `whatBlocksReady` returns for the story: the panel and the meters can't disagree. Other open items and hat notes are talking points. People's notes and suggestions are talking points; quotes from sources and themes already cited are From discovery.
+- **Where accepted notes land.** Quotes go under the first section with a citation to their excerpt; people's notes go under "What we think". Accepted lines are credited to their author; merges to the lead. Merging into an agreed line is offered but disabled, so the lead accepts it as a new line instead. Suggestions can't be merged or moved.
+- **Move** works the expiry out again for the new target, and takes the Product hat's suggestion (marks it accepted).
+- **Epic drafts** are triaged by the epic owner; accepting them waits for the PRFAQ editor (bolt 5).
+- **Hat notes.** An answer is a new line under the line the note is about, and closes the note; a QA note can be added to the page as a question. Only the lead dismisses, and dismissals are logged with hat and kind as a product metric. Hat notes on drafts give hints, not answers.
+- **Suggestions** capture adds, edits, removals and chip changes, not reordering. An edit suggestion remembers the line's text, and is refused as stale if the lead changed the line since.
+**Consequence.** The rules are pure functions in `src/domain/panel.ts`, `triage.ts` and `suggestions.ts`, with the permissions (`canTriageNow`, `canWithdraw`, `canPutToSession`, `canDismiss`) tested there.
+
+## ADR-029 · The Scrum Master's expiry pass and the manual agenda queue
+**Context.** Drafts must leave the panel when they expire, and people want to put things to the next session from the panel.
+**Decision.** The expiry pass (`expireDrafts`) runs deterministically whenever the workspace loads, archiving overdue drafts and logging `draft.expired`. Anyone can put an item or hat note that belongs to the story on the next planned session; it's stored in `Session.agenda`. Bolt 8 lists those first, then the computed agenda (ADR-011). The panel summary groups blockers into decisions, answers and other checks, with epic checks as a separate sentence, and counts drafts expiring before the next session (or within three days if none is planned).
+**Consequence.** No background job is needed for the prototype. A real deployment would run the same function on a schedule.

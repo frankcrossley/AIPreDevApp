@@ -2,9 +2,9 @@
 // the ops they produce and logs every change as an Event.
 import { randomUUID } from "node:crypto";
 import { isLiveItem } from "@/domain/checks";
-import { deleteImpact, diffSection, realignmentItems, reopenImpact, setBlocking, type NotebookOp, type SectionLine } from "@/domain/notebook";
+import { diffSection, planChange, reopenImpact, realignmentItems, setBlocking, type ChangePlan, type NotebookOp, type SectionLine } from "@/domain/notebook";
 import { editsDirectly, toSuggestions } from "@/domain/suggestions";
-import type { Citation, Draft, Item } from "@/domain/types";
+import type { Citation, DomainSnapshot, Draft, Item, Story } from "@/domain/types";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "./prisma";
 import { reopenWrites } from "./lifecycle";
@@ -85,30 +85,30 @@ export async function saveSection(
 
   const ops = diffSection({ ctx, storyId: story.id, section: input.section, lines: input.lines, actorId: input.actorId, now, newId: () => shortId("x") });
   if (!ops.length) return { status: "saved", reopened: false };
-
-  const impact = reopenImpact(ops, story, ctx);
-  const deletes = deleteImpact(ops, ctx);
-  if ((impact.reopen || deletes.affected.length) && !input.confirmReopen) {
-    return {
-      status: "needs_confirmation",
-      warning: [impact.reopen ? impact.warning : "", deletes.warning].filter(Boolean).join(" "),
-      personIds: impact.personIds,
-    };
+  const plan = planChange(ops, story, ctx);
+  if (plan.needsConfirmation && !input.confirmReopen) {
+    return { status: "needs_confirmation", warning: plan.warning, personIds: plan.reopen.personIds };
   }
-  // The reopen, the edit and any realignment land together or not at all.
-  const reopen = impact.reopen ? reopenWrites(db, story, impact.editedIds, ctx, input.actorId).writes : [];
-  const realign = realignmentItems(deletes, () => shortId("rl"));
-  await db.$transaction([
-    ...reopen,
-    ...deletes.affected.map((a) => db.citation.deleteMany({ where: { toType: "block", toId: a.blockId } })),
-    ...opWrites(db, ops, story.id, input.actorId, now),
+  await db.$transaction(changeWrites(db, plan, story, ctx, input.actorId, now));
+  return { status: "saved", reopened: plan.reopen.reopen };
+}
+
+/**
+ * The writes for a planned change, in one list for one transaction: the reopen, citations to
+ * deleted lines, the edit itself, and a realignment talking point for each dependent.
+ */
+export function changeWrites(db: Db, plan: ChangePlan, story: Story, ctx: DomainSnapshot, actorId: string, now: Date): Prisma.PrismaPromise<unknown>[] {
+  const realign = realignmentItems(plan.deletes, () => shortId("rl"));
+  return [
+    ...(plan.reopen.reopen ? reopenWrites(db, story, plan.reopen.editedIds, ctx, actorId).writes : []),
+    ...plan.deletes.affected.map((a) => db.citation.deleteMany({ where: { toType: "block", toId: a.blockId } })),
+    ...opWrites(db, plan.ops, story.id, actorId, now),
     ...realign.flatMap(({ item, citation }) => [
       itemCreate(db, item),
       ...(citation ? [db.citation.create({ data: citation })] : []),
-      eventWrite(db, "item.created", input.actorId, item.parentId, { itemId: item.id, type: item.type, text: item.text, reason: "realign" }, now),
+      eventWrite(db, "item.created", actorId, item.parentId, { itemId: item.id, type: item.type, text: item.text, reason: "realign" }, now),
     ]),
-  ]);
-  return { status: "saved", reopened: impact.reopen };
+  ];
 }
 
 export const eventWrite = (db: Db, type: string, actorId: string | null, storyId: string, payload: object, now: Date) =>
@@ -123,18 +123,28 @@ export const draftWrite = (db: Db, d: Draft) => db.draft.update({ where: { id: d
 export const citationWrites = (db: Db, citations: Citation[]) => citations.map((c) => db.citation.create({ data: c }));
 
 /**
- * Marks a question blocking or not. On an agreed, ready or exported story that changes agreed
- * content, so the story reopens in the same transaction (ADR-015).
+ * Marks a question blocking or not. Lead only (ADR-025). On an agreed, ready or exported story it
+ * changes agreed content, so it asks first and then reopens in the same transaction (ADR-015).
  */
-export async function setItemBlocking(db: Db, itemId: string, blocking: boolean, actorId: string) {
+export async function setItemBlocking(
+  db: Db,
+  itemId: string,
+  blocking: boolean,
+  actorId: string,
+  confirmReopen = true,
+): Promise<{ status: "done" } | { status: "needs_confirmation"; warning: string } | { status: "refused"; reason: string }> {
   const ctx = await loadSnapshot(db);
   const item = ctx.items.find((i) => i.id === itemId);
   if (!item || !isLiveItem(item)) throw new Error(`No live item ${itemId}`);
   const updated = setBlocking(item, blocking);
   const story = item.parentType === "story" ? ctx.stories.find((s) => s.id === item.parentId) : undefined;
-  const reopen = story ? reopenWrites(db, story, itemId, ctx, actorId).writes : [];
+  if (story && !editsDirectly(actorId, story)) {
+    return { status: "refused", reason: `${ctx.people.find((p) => p.id === story.leadId)?.name ?? story.leadId} is the lead` };
+  }
+  const reopen = story ? reopenImpact([{ op: "updateItem", id: itemId, text: item.text }], story, ctx) : null;
+  if (reopen?.reopen && !confirmReopen) return { status: "needs_confirmation", warning: reopen.warning };
   await db.$transaction([
-    ...reopen,
+    ...(story && reopen?.reopen ? reopenWrites(db, story, itemId, ctx, actorId).writes : []),
     db.item.update({ where: { id: itemId }, data: { blocking: updated.blocking } }),
     db.event.create({
       data: {
@@ -147,4 +157,5 @@ export async function setItemBlocking(db: Db, itemId: string, blocking: boolean,
       },
     }),
   ]);
+  return { status: "done" };
 }

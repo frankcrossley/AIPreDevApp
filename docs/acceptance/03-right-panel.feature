@@ -12,6 +12,7 @@ Feature: Everything that needs you, on the right
     Then it appears as a dashed draft card with "expires in N days"
     And N is the earlier of the template's expiry and the next session
 
+  # Suggestions from people other than the lead are drafts too, triaged the same way (ADR-025).
   Scenario: Only the lead can triage
     Given I am viewing as Sam
     Then the draft's Accept, Merge and Reject actions are disabled with the reason "Priya is the lead"

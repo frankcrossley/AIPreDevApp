@@ -47,7 +47,7 @@ Every bolt is done when:
 - Header search, and hat notes under their lines (bolt 6).
 - Open questions: should notebook edits by non-leads outside a session become drafts (ADR-023)? Should deleting a line that others cite be refused, rather than removing its citations? Should a prefix be escapable, so "risk: ..." can stay plain text?
 
-## [ ] Bolt 3 · The right panel
+## [x] Bolt 3 · The right panel
 **Goal.** Everything that needs you, beside the notebook.
 **Scope.**
 - The "For this item" tab: Scrum Master summary, Decisions needed, Talking points, From discovery.
@@ -56,6 +56,13 @@ Every bolt is done when:
 - Details and Activity tabs.
 **Acceptance.** `03-right-panel.feature`.
 **Demo.** As Sam you can't triage; as Priya, accept Marcus's draft and see it land as an unagreed block.
+**Done.** Ranked panel with the Scrum Master summary, draft triage, the expired-draft archive, and the Product-hat move. It also includes the product owner's answers from bolt 2: suggest mode (ADR-025), dependent-aware deletes (ADR-026), and typed-only prefixes (ADR-027). ADR-028 and ADR-029 record the rest.
+**Deferred.**
+- Stances ("Decide now" only scrolls to the decision) are bolt 4.
+- Epic drafts can be rejected or moved, but accepting them waits for the PRFAQ editor (bolt 5).
+- The scribe editing directly in session mode, and using the manual agenda queue, are bolt 8.
+- Hat notes are seeded; generating them and validating their hints (including `moveToId`) is bolt 6.
+- Delegates for triage aren't modelled.
 
 ## [ ] Bolt 4 · Checks in the UI, stances and sign-off
 **Goal.** Ready is earned in the interface.

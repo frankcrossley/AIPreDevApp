@@ -6,7 +6,7 @@ import { isLiveItem, latestStances } from "./checks";
 import { anchorFor } from "./anchors";
 import { expiryLabel } from "./drafts";
 import { sourceLabel } from "./notebook-view";
-import { hatNoteOwner, readySummary, sessionDayLabel } from "./scrum-master";
+import { hatNoteOwner, readySummary, sessionDayLabel, whatBlocksReady } from "./scrum-master";
 import { describeSuggestion, editsDirectly } from "./suggestions";
 import { canTriage, mergeTargets } from "./triage";
 import type { DomainSnapshot, Draft, Epic, HatNote, Item, Story } from "./types";
@@ -111,28 +111,32 @@ export function forThisItem(story: Story, ctx: DomainSnapshot, now: Date, actorI
   const decisions: PanelCard[] = [];
   const talking: PanelCard[] = [];
   const discovery: PanelCard[] = [];
+  // "Decisions needed" is exactly what holds up a check (whatBlocksReady), so the panel and the
+  // meters can never disagree. Everything else open is a talking point.
+  const blocking = new Set(whatBlocksReady(story, ctx).map((b) => `${b.fixTarget.type}:${b.fixTarget.id}`));
 
-  // Items: decisions waiting on stances or objections, blocking questions, then the rest.
+  // Items: decisions waiting on stances or objections and blocking questions hold up a check.
   for (const i of items.filter((x) => x.status === "open")) {
+    const holdsUpCheck = blocking.has(`item:${i.id}`);
     if (i.type === "decision") {
+      if (!holdsUpCheck) continue;
       const latest = latestStances(ctx.stances.filter((s) => s.itemId === i.id));
       const given = new Set(ctx.stances.filter((s) => s.itemId === i.id && s.round === i.stanceRound).map((s) => s.personId));
       const missing = i.requiredStanceIds.filter((p) => !given.has(p));
       const objecting = [...latest.values()].filter((s) => s.value === "object").map((s) => s.personId);
-      const detail = objecting.length ? `${objecting.map(name).join(", ")} objects` : missing.length ? `Waiting on ${missing.map(name).join(", ")}` : null;
-      if (!detail) continue;
+      const detail = objecting.length ? `${objecting.map(name).join(", ")} objects` : `Waiting on ${missing.map(name).join(", ")}`;
       decisions.push({ ...itemCard(i, detail, objecting.length ? "alert" : "dashed"), actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)] });
-    } else if (i.type === "question" && i.blocking) {
+    } else if (holdsUpCheck) {
       decisions.push({
         ...itemCard(i, `Needs a decision · owner ${name(i.ownerId)}`, "alert"),
         actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)],
       });
     } else {
-      talking.push({ ...itemCard(i, `${CHIP_TAG[i.type] ?? i.type} · ${name(i.ownerId)}`, i.type === "assumption" ? "dashed" : "solid"), actions: putToSession(i.id) });
+      talking.push({ ...itemCard(i, `${CHIP_TAG[i.type] ?? i.type} · ${name(i.ownerId)}`, "dashed"), actions: putToSession(i.id) });
     }
   }
 
-  // Hat notes on this story's content. Ones that hold up a check need a decision; the rest are talking points.
+  // Hat notes on this story's content: the ones a check is waiting on need a decision.
   const notes = ctx.hatNotes.filter((h) => h.status === "open" && contentIds.has(h.targetId));
   const hatCard = (h: HatNote): PanelCard => ({
     id: h.id,
@@ -146,13 +150,15 @@ export function forThisItem(story: Story, ctx: DomainSnapshot, now: Date, actorI
     hint: null,
   });
   for (const h of notes) {
-    const holdsUpCheck = h.kind === "conflict" || ((h.hat === "arch" || h.hat === "eng" || h.hat === "sec") && h.kind === "challenge");
-    if (holdsUpCheck) {
+    if (blocking.has(`hatNote:${h.id}`)) {
       decisions.push({ ...hatCard(h), actions: [{ kind: "answer", label: "Answer", disabledReason: null }, ...putToSession(h.id)] });
     } else {
       talking.push({
         ...hatCard(h),
-        actions: [{ kind: "add_to_page", label: "Add to page", disabledReason: null }, leadOnly("dismiss", "Dismiss")],
+        actions: [
+          { kind: h.hat === "qa" ? "add_to_page" : "answer", label: h.hat === "qa" ? "Add to page" : "Answer", disabledReason: null },
+          leadOnly("dismiss", "Dismiss"),
+        ],
       });
     }
   }

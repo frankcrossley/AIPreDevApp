@@ -431,3 +431,30 @@ export function sectionLines(storyId: string, section: string, ctx: DomainSnapsh
       };
     });
 }
+
+// ---------- one plan for every notebook change ----------
+
+export interface ChangePlan {
+  ops: NotebookOp[];
+  reopen: ReopenImpact;
+  deletes: DeleteImpact;
+  /** True when a person must confirm first: the change reopens agreed content or orphans citations. */
+  needsConfirmation: boolean;
+  warning: string;
+}
+
+/**
+ * Every path that changes a story's notebook (saving, accepting, merging, answering, blocking)
+ * goes through this, so the reopen rule (ADR-015) and the dependent check (ADR-026) always apply.
+ */
+export function planChange(ops: NotebookOp[], story: Story, ctx: DomainSnapshot, verb: "Saving" | "Accepting" = "Saving"): ChangePlan {
+  const reopen = reopenImpact(ops, story, ctx, verb);
+  const deletes = deleteImpact(ops, ctx);
+  return {
+    ops,
+    reopen,
+    deletes,
+    needsConfirmation: reopen.reopen || deletes.affected.length > 0,
+    warning: [reopen.reopen ? reopen.warning : "", deletes.warning].filter(Boolean).join(" "),
+  };
+}

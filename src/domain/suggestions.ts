@@ -3,7 +3,7 @@
 // expires and is triaged like any other draft, and nothing changes until the lead accepts it.
 
 import { draftExpiresAt, draftExpiryDays } from "./drafts";
-import { diffSection, reopenImpact, sectionLines, type NotebookOp, type ReopenImpact, type SectionLine } from "./notebook";
+import { diffSection, planChange, sectionLines, type ChangePlan, type NotebookOp, type SectionLine } from "./notebook";
 import type { DomainSnapshot, Draft, Story, SuggestionOp } from "./types";
 
 /** Who edits a story directly. Everyone else suggests. (Bolt 8 adds the scribe in session mode.) */
@@ -124,6 +124,7 @@ export function toSuggestions(input: {
       afterBlockId: w.afterBlockId,
       itemType: w.itemType,
       hatNoteId: null,
+      baseText: w.op === "edit" ? (ctx.blocks.find((b) => b.id === w.blockId)?.text ?? null) : null,
     });
   }
   return { upserts, withdrawIds: mine.filter((d) => !keep.has(d.id)).map((d) => d.id) };
@@ -175,12 +176,9 @@ export function applySuggestions(lines: SectionLine[], suggestions: Draft[], ctx
   return out;
 }
 
-export interface AcceptedSuggestion {
-  ops: NotebookOp[];
-  impact: ReopenImpact;
-}
+export type AcceptedSuggestion = ChangePlan;
 
-/** What accepting one suggestion does to the notebook, and whether it reopens agreed content. */
+/** What accepting one suggestion does to the notebook, with its reopen and dependent impact. */
 export function acceptSuggestion(draft: Draft, ctx: DomainSnapshot, now: Date, newId: () => string): AcceptedSuggestion {
   if (draft.kind !== "suggestion" || !draft.section || !draft.op || !draft.blockId) throw new Error("Not a suggestion");
   const story = ctx.stories.find((s) => s.id === draft.targetId);
@@ -189,9 +187,13 @@ export function acceptSuggestion(draft: Draft, ctx: DomainSnapshot, now: Date, n
   if (draft.op !== "add" && !base.some((l) => l.blockId === draft.blockId)) {
     throw new Error("The line this suggestion changes is gone. Reject it instead.");
   }
+  const current = base.find((l) => l.blockId === draft.blockId);
+  if (draft.op === "edit" && draft.baseText !== null && current && current.text !== draft.baseText) {
+    throw new Error("The line has changed since this was suggested. Reject it, and ask for a fresh suggestion.");
+  }
   const next = applySuggestions(base, [draft], ctx);
   const ops = diffSection({ ctx, storyId: story.id, section: draft.section, lines: next, actorId: draft.authorId ?? story.leadId, now, newId });
-  return { ops, impact: reopenImpact(ops, story, ctx, "Accepting") };
+  return planChange(ops, story, ctx, "Accepting");
 }
 
 /** How a suggestion reads on its card and under its line. */

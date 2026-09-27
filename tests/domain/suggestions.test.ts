@@ -110,6 +110,7 @@ describe("accepting a suggestion", () => {
     afterBlockId: "b6",
     itemType: null,
     hatNoteId: null,
+    baseText: null,
     ...over,
   });
 
@@ -119,13 +120,14 @@ describe("accepting a suggestion", () => {
     const after = applyOps(ctx, r.ops, NOW);
     expect(sectionLines("bill-150", "Edge cases", after).map((l) => l.blockId)).toEqual(["b6", "blk-d1", "b7"]);
     expect(after.blocks.find((b) => b.id === "blk-d1")!.authorId).toBe("dan");
-    expect(r.impact.reopen).toBe(false);
+    expect(r.reopen.reopen).toBe(false);
   });
 
   it("Dan's edit to the agreed decision warns Priya before it reopens", () => {
     const ctx = seeded();
     const r = acceptSuggestion(suggestion({ op: "edit", section: "What we think", blockId: "b4", afterBlockId: null, text: "Upgrades apply immediately, rounded to the day." }), ctx, NOW, newId);
-    expect(r.impact).toMatchObject({ reopen: true, personIds: ["priya", "sam", "marcus"], warning: "Priya, Sam and Marcus agreed this. Accepting reopens it for all three." });
+    expect(r.reopen).toMatchObject({ reopen: true, personIds: ["priya", "sam", "marcus"] });
+    expect(r.warning).toBe("Priya, Sam and Marcus agreed this. Accepting reopens it for all three.");
   });
 
   it("a suggestion whose line is gone can't be accepted", () => {
@@ -139,5 +141,35 @@ describe("accepting a suggestion", () => {
     const r = acceptSuggestion(suggestion({ id: "second", blockId: "blk-b", afterBlockId: "blk-a", text: "B" }), ctx, NOW, newId);
     const after = applyOps(ctx, r.ops, NOW);
     expect(sectionLines("bill-150", "Edge cases", after).map((l) => l.blockId)).toEqual(["b6", "blk-b", "b7"]);
+  });
+});
+
+describe("stale and destructive suggestions", () => {
+  const base = (over: Partial<Draft>): Draft => ({
+    id: "sg", targetType: "story", targetId: "bill-150", text: "", authorId: "dan", excerptId: null, sourceId: null,
+    createdAt: NOW, expiresAt: NOW, status: "pending", triagedBy: null, triagedAt: null, resultBlockId: null,
+    kind: "suggestion", section: "Edge cases", op: "edit", blockId: "b7", afterBlockId: null, itemType: null,
+    hatNoteId: null, baseText: null, ...over,
+  });
+
+  it("an edit made before the lead changed the line is refused as stale", () => {
+    const ctx = seeded();
+    const sg = base({ text: "Twice a month is fine.", baseText: "An older version of the line." });
+    expect(() => acceptSuggestion(sg, ctx, NOW, newId)).toThrow(/changed since/);
+    expect(() => acceptSuggestion({ ...sg, baseText: ctx.blocks.find((b) => b.id === "b7")!.text }, ctx, NOW, newId)).not.toThrow();
+  });
+
+  it("toSuggestions records the line's text for an edit", () => {
+    const ctx = seeded();
+    const lines = sectionLines("bill-150", "Edge cases", ctx).map((l) => (l.blockId === "b7" ? { ...l, text: "Fine." } : l));
+    expect(suggest(ctx, "Edge cases", lines).upserts[0].baseText).toBe("A customer changes plan twice in one month. Probably fine, same rule applies.");
+  });
+
+  it("accepting a removal of a cited line carries its dependents into the plan", () => {
+    const ctx = seeded();
+    const plan = acceptSuggestion(base({ op: "remove", section: "What we think", blockId: "b4", text: "Upgrades apply immediately, charged by the day." }), ctx, NOW, newId);
+    expect(plan.needsConfirmation).toBe(true);
+    expect(plan.deletes.affected[0].dependents.map((d) => d.id)).toEqual(["b5", "ac1"]);
+    expect(plan.warning).toContain("2 things cite");
   });
 });

@@ -42,7 +42,7 @@ describe("notebook view in suggest mode", () => {
       id: "sg1", targetType: "story", targetId: "bill-150", text: "Annual plans renew mid-cycle too.", authorId: "marcus",
       excerptId: null, sourceId: null, createdAt: NOW, expiresAt: c.sessions[0].date, status: "pending", triagedBy: null,
       triagedAt: null, resultBlockId: null, kind: "suggestion", section: "Edge cases", op: "add", blockId: "blk-m1",
-      afterBlockId: "b7", itemType: null, hatNoteId: null,
+      afterBlockId: "b7", itemType: null, hatNoteId: null, baseText: null,
     });
     return c;
   };

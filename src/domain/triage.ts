@@ -2,8 +2,9 @@
 // Accepting adds new, unagreed content; it never edits agreed content directly (rule 6).
 
 import { draftExpiresAt, draftExpiryDays } from "./drafts";
-import { agreedBy, diffSection, parsePrefix, reopenImpact, sectionLines, type NotebookOp, type ReopenImpact } from "./notebook";
-import type { Citation, DomainSnapshot, Draft } from "./types";
+import { agreedBy, diffSection, parsePrefix, planChange, sectionLines, type ChangePlan } from "./notebook";
+import { editsDirectly } from "./suggestions";
+import type { Citation, DomainSnapshot, Draft, Session } from "./types";
 
 export type Permission = { ok: true } | { ok: false; reason: string };
 
@@ -22,6 +23,47 @@ export function canTriage(personId: string, draft: Draft, ctx: DomainSnapshot): 
   return { ok: true };
 }
 
+/** Accept, merge, reject and move need a live draft; an expired one must be restored first. */
+export function canTriageNow(personId: string, draft: Draft, ctx: DomainSnapshot, now: Date): Permission {
+  const base = canTriage(personId, draft, ctx);
+  if (!base.ok) return base;
+  if (draft.status === "expired" || draft.expiresAt.getTime() <= now.getTime()) {
+    return { ok: false, reason: "This draft has expired. Restore it first." };
+  }
+  return base;
+}
+
+/** Only a suggestion's author can take it back, while it's pending. */
+export function canWithdraw(personId: string, draft: Draft): Permission {
+  if (draft.kind !== "suggestion") return { ok: false, reason: "Only suggestions can be withdrawn" };
+  if (draft.authorId !== personId) return { ok: false, reason: "Only its author can withdraw a suggestion" };
+  if (draft.status !== "pending") return { ok: false, reason: `Already ${draft.status}` };
+  return { ok: true };
+}
+
+/** Anyone on the team can put an item or hat note on this story to a planned session (ADR-029). */
+export function canPutToSession(session: Session | undefined, subjectId: string, storyId: string, ctx: DomainSnapshot): Permission {
+  if (!session || session.status === "ended") return { ok: false, reason: "That session isn't planned any more" };
+  const onStory =
+    ctx.items.some((i) => i.id === subjectId && i.parentType === "story" && i.parentId === storyId) ||
+    ctx.hatNotes.some((h) => {
+      if (h.id !== subjectId) return false;
+      const block = ctx.blocks.find((b) => b.id === h.targetId);
+      const item = ctx.items.find((i) => i.id === h.targetId);
+      return block?.parentId === storyId || item?.parentId === storyId || h.targetId === storyId;
+    });
+  return onStory ? { ok: true } : { ok: false, reason: "That isn't on this story" };
+}
+
+/** Only the lead dismisses a hat note on their story. */
+export function canDismiss(personId: string, storyLeadId: string, ctx: DomainSnapshot): Permission {
+  return personId === storyLeadId
+    ? { ok: true }
+    : { ok: false, reason: `${ctx.people.find((p) => p.id === storyLeadId)?.name ?? storyLeadId} is the lead` };
+}
+
+export { editsDirectly };
+
 /** Where an accepted note lands: quotes from sources under the first section, people's notes under "What we think". */
 export function defaultSection(draft: Draft, sections: string[]): string {
   if (draft.excerptId || draft.sourceId) return sections[0];
@@ -30,9 +72,8 @@ export function defaultSection(draft: Draft, sections: string[]): string {
 
 export interface Triaged {
   draft: Draft;
-  ops: NotebookOp[];
+  plan: ChangePlan;
   citations: Citation[];
-  impact: ReopenImpact | null;
 }
 
 function storyOf(draft: Draft, ctx: DomainSnapshot) {
@@ -62,9 +103,8 @@ export function acceptNote(
   const ops = diffSection({ ctx, storyId: story.id, section, lines, actorId: draft.authorId ?? opts.actorId, now: opts.now, newId: opts.newId });
   return {
     draft: { ...draft, status: "accepted", triagedBy: opts.actorId, triagedAt: opts.now, resultBlockId: blockId },
-    ops,
+    plan: planChange(ops, story, ctx, "Accepting"),
     citations: quoteCitation(draft, blockId),
-    impact: reopenImpact(ops, story, ctx, "Accepting"),
   };
 }
 
@@ -86,6 +126,7 @@ export function mergeTargets(draft: Draft, ctx: DomainSnapshot): { blockId: stri
 
 /** Merges a note into an unagreed line: its text is appended, and a quote keeps its source. */
 export function mergeNote(draft: Draft, intoBlockId: string, ctx: DomainSnapshot, opts: { actorId: string; now: Date; newId: () => string }): Triaged {
+  if (draft.kind !== "note") throw new Error("A suggestion can be accepted or rejected, not merged");
   const { story } = storyOf(draft, ctx);
   const target = mergeTargets(draft, ctx).find((t) => t.blockId === intoBlockId);
   if (!target) throw new Error("That line isn't on this story");
@@ -97,9 +138,9 @@ export function mergeNote(draft: Draft, intoBlockId: string, ctx: DomainSnapshot
   const ops = diffSection({ ctx, storyId: story.id, section: block.section, lines, actorId: opts.actorId, now: opts.now, newId: opts.newId });
   return {
     draft: { ...draft, status: "merged", triagedBy: opts.actorId, triagedAt: opts.now, resultBlockId: intoBlockId },
-    ops,
+    // On an agreed story, merging still reopens it (ADR-015), behind the same warning.
+    plan: planChange(ops, story, ctx, "Accepting"),
     citations: quoteCitation(draft, intoBlockId),
-    impact: null,
   };
 }
 

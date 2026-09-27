@@ -90,3 +90,19 @@ describe("For this epic", () => {
     ]);
   });
 });
+
+describe("panel ranking follows the checks", () => {
+  it("an Engineer challenge that no check waits on is a talking point, not a decision", () => {
+    const ctx = seeded();
+    ctx.hatNotes.push({ id: "hn-eng", hat: "eng", targetType: "block", targetId: "b5", kind: "challenge", text: "Does the invoice job run hourly?", refs: [], status: "open", moveToId: null });
+    const p = forThisItem(story(ctx, "BILL-150"), ctx, NOW, "priya");
+    expect(p.sections.find((x) => x.key === "decisions")!.cards.map((c) => c.id)).not.toContain("hn-eng");
+    expect(p.sections.find((x) => x.key === "talking")!.cards.map((c) => c.id)).toContain("hn-eng");
+  });
+
+  it("Sam can't move a draft either", () => {
+    const ctx = seeded();
+    const card = forThisItem(story(ctx, "BILL-150"), ctx, NOW, "sam").sections[2].cards.find((c) => c.id === "dr3")!;
+    expect(card.hint!.action!.disabledReason).toBe("Priya is the lead");
+  });
+});

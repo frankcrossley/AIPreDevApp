@@ -280,6 +280,7 @@ export function normaliseSeed(seed: SeedFile, now: Date): NormalisedSeed {
       afterBlockId: d.afterBlockId ?? null,
       itemType: d.itemType ?? null,
       hatNoteId: d.hatNoteId ?? null,
+      baseText: d.baseText ?? null,
     };
   });
 

@@ -123,7 +123,7 @@ function LineView({ node, updateAttributes }: ReactNodeViewProps) {
   const under = blockId ? (nb.suggestionsUnder[blockId] ?? []) : [];
   // Solid when sourced; dashed when unsourced in a required section, or when it's only a suggestion.
   const edge = ownSuggestion
-    ? "border-dashed border-agreed"
+    ? "border-dashed border-muted"
     : source?.sourced
       ? "border-agreed"
       : nb.required && !empty
