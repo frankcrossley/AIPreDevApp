@@ -65,14 +65,21 @@ describe("there is no way to force Ready (code guard)", () => {
   });
 });
 
-describe("routes", () => {
-  it("the only route that changes a story's state is sign-off, and it goes through the lifecycle", () => {
-    const routes = files(SRC).filter((f) => /[/\\]route\.tsx?$/.test(f));
-    const touching = routes.filter((f) => /signOff|transition|state/i.test(readFileSync(f, "utf8")));
-    expect(touching.map((f) => path.relative(SRC, f))).toEqual([path.join("app", "api", "stories", "[key]", "sign-off", "route.ts")]);
-    const src = readFileSync(touching[0], "utf8");
-    expect(src).toMatch(/from "@\/server\/lifecycle"/);
-    expect(src).toMatch(/signOffStory\(/);
-    expect(src).not.toMatch(/["']ready["']/);
+describe("routes and server actions", () => {
+  const entryPoints = () => files(SRC).filter((f) => /[/\\]route\.tsx?$/.test(f) || /^["']use server["']/m.test(readFileSync(f, "utf8")));
+
+  it("every route or server action that signs off or moves a story goes through the lifecycle", () => {
+    const touching = entryPoints().filter((f) => /signOff|transitionStory|\bstate\b/.test(readFileSync(f, "utf8")));
+    expect(touching.map((f) => path.relative(SRC, f)).sort()).toEqual([
+      path.join("app", "actions.ts"),
+      path.join("app", "api", "stories", "[key]", "sign-off", "route.ts"),
+    ]);
+    for (const f of touching) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).toMatch(/from "@\/server\/lifecycle"/);
+      expect(src, f).toMatch(/signOffStory\(/);
+      expect(src, f).not.toMatch(/state:\s*["']ready["']/);
+      expect(src, f).not.toMatch(/["']ready["']/);
+    }
   });
 });

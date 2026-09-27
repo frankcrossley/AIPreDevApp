@@ -79,3 +79,31 @@ describe("answering a question", () => {
     expect(() => answerQuestion({ ...base, itemId: "it-q1" })).toThrow(/already answered/);
   });
 });
+
+describe("who's asked: the edges", () => {
+  it("someone who objects stays asked until they resolve it", () => {
+    const ctx = seeded();
+    ctx.stances.push({ id: "o", itemId: "it-d1", personId: "dan", value: "object", reason: "Needs an event", round: 1, createdAt: NOW });
+    const item = ctx.items.find((i) => i.id === "it-d1")!;
+    expect(() => setRequiredStances(item, ["priya", "sam", "marcus"], "priya", story(ctx, "BILL-150"), ctx)).toThrow(/Dan objects/);
+  });
+
+  it("only epic members can be asked", () => {
+    const ctx = seeded();
+    const item = ctx.items.find((i) => i.id === "it-d1")!;
+    expect(() => setRequiredStances(item, ["priya", "jo"], "priya", story(ctx, "BILL-150"), ctx)).toThrow(/Jo isn't on the epic/);
+  });
+
+  it("nothing about stances changes on a Ready story", () => {
+    const ctx = seeded();
+    story(ctx, "BILL-150").state = "ready";
+    const item = ctx.items.find((i) => i.id === "it-d1")!;
+    expect(() => setRequiredStances(item, ["priya", "dan"], "priya", story(ctx, "BILL-150"), ctx)).toThrow(/Ready/);
+    expect(canRecordStance("dan", "it-d1", ctx)).toEqual({ ok: false, reason: "BILL-150 is Ready. Edit it to reopen it before changing stances." });
+  });
+
+  it("only the lead answers a question", () => {
+    const ctx = seeded();
+    expect(() => answerQuestion({ ctx, itemId: "it-q1", text: "Next cycle.", asDecision: false, actorId: "sam", now: NOW, newId: () => "z1" })).toThrow(/Priya is the lead/);
+  });
+});

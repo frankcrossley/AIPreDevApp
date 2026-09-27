@@ -9,7 +9,7 @@ import { sourceLabel } from "./notebook-view";
 import { hatNoteOwner, readySummary, sessionDayLabel, whatBlocksReady } from "./scrum-master";
 import { describeSuggestion, editsDirectly } from "./suggestions";
 import { canTriage, mergeTargets } from "./triage";
-import { canRecordStance, stanceSummary, type StanceRow } from "./stances";
+import { askablePeople, canRecordStance, stanceSummary, type StanceRow } from "./stances";
 import type { DomainSnapshot, Draft, Epic, HatNote, Item, StanceValue, Story } from "./types";
 
 export type ActionKind =
@@ -138,17 +138,16 @@ export function forThisItem(story: Story, ctx: DomainSnapshot, now: Date, actorI
       const detail = objecting.length ? `${objecting.map(name).join(", ")} objects` : `Waiting on ${missing.map(name).join(", ")}`;
       const rows = stanceSummary(i, ctx);
       const permission = canRecordStance(actorId, i.id, ctx);
-      const locked = story.state === "ready" || story.state === "exported";
-      const epic = ctx.epics.find((e) => e.id === story.epicId);
+
       decisions.push({
         ...itemCard(i, detail, objecting.length ? "alert" : "dashed"),
         actions: [{ kind: "decide", label: "Decide now", disabledReason: null }, ...putToSession(i.id)],
         stances: {
           rows,
-          reason: locked ? `${story.key} is Ready` : permission.ok ? null : permission.reason,
+          reason: permission.ok ? null : permission.reason,
           mine: rows.find((r) => r.personId === actorId)?.value ?? null,
           askable: isLead
-            ? (epic?.memberIds ?? []).map((id) => ({ id, name: name(id), asked: i.requiredStanceIds.includes(id) }))
+            ? askablePeople(story, ctx).map((id) => ({ id, name: name(id), asked: i.requiredStanceIds.includes(id) }))
             : null,
         },
       });

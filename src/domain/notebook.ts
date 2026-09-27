@@ -486,6 +486,9 @@ export function answerQuestion(input: {
   const block = ctx.blocks.find((b) => b.id === question.blockId);
   const story = ctx.stories.find((s) => s.id === question.parentId);
   if (!block || !story || question.parentType !== "story") throw new Error("That question isn't on a story's notebook");
+  if (actorId !== story.leadId) {
+    throw new Error(`${ctx.people.find((p) => p.id === story.leadId)?.name ?? story.leadId} is the lead. Suggest an answer in the notebook instead.`);
+  }
   const lines = sectionLines(story.id, block.section, ctx);
   const at = lines.findIndex((l) => l.blockId === block.id);
   const answerId = newId();

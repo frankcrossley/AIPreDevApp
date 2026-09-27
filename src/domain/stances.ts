@@ -9,9 +9,15 @@ export type Permission = { ok: true } | { ok: false; reason: string };
 const liveDecision = (itemId: string, ctx: DomainSnapshot): Item | undefined =>
   ctx.items.find((i) => i.id === itemId && i.type === "decision" && isLiveItem(i));
 
+const LOCKED_STATES = new Set(["ready", "exported"]);
+
+const storyOf = (item: Item, ctx: DomainSnapshot) => (item.parentType === "story" ? ctx.stories.find((s) => s.id === item.parentId) : undefined);
+
 export function canRecordStance(personId: string, itemId: string, ctx: DomainSnapshot): Permission {
   const item = liveDecision(itemId, ctx);
   if (!item) return { ok: false, reason: "Stances are for decisions" };
+  const story = storyOf(item, ctx);
+  if (story && LOCKED_STATES.has(story.state)) return { ok: false, reason: `${story.key} is Ready. Edit it to reopen it before changing stances.` };
   if (!item.requiredStanceIds.includes(personId)) return { ok: false, reason: "You weren't asked for a stance on this" };
   if (!ctx.people.some((p) => p.id === personId)) return { ok: false, reason: "Unknown person" };
   return { ok: true };
@@ -52,12 +58,29 @@ export function stanceSummary(item: Item, ctx: DomainSnapshot): StanceRow[] {
   });
 }
 
-/** The lead chooses who's asked. At least one person, all of them real. */
+/** People who can be asked for a stance on a story's decision: the epic's members. */
+export function askablePeople(story: Story, ctx: DomainSnapshot): string[] {
+  return ctx.epics.find((e) => e.id === story.epicId)?.memberIds ?? [];
+}
+
+/**
+ * The lead chooses who's asked, from the epic's members. Nobody with an unresolved objection can
+ * be dropped (they must be able to resolve it, ADR-012), and the list is fixed once the story is
+ * Ready: edit it to reopen it first (ADR-031).
+ */
 export function setRequiredStances(item: Item, personIds: string[], actorId: string, story: Story, ctx: DomainSnapshot): Item {
   if (actorId !== story.leadId) throw new Error(`${ctx.people.find((p) => p.id === story.leadId)?.name ?? story.leadId} is the lead`);
   if (item.type !== "decision") throw new Error("Only decisions ask for stances");
+  if (LOCKED_STATES.has(story.state)) throw new Error(`${story.key} is Ready. Edit it to reopen it before changing who's asked.`);
   const ids = [...new Set(personIds)];
   if (!ids.length) throw new Error("Ask at least one person");
-  for (const id of ids) if (!ctx.people.some((p) => p.id === id)) throw new Error(`Unknown person ${id}`);
+  const askable = new Set(askablePeople(story, ctx));
+  for (const id of ids) if (!askable.has(id)) throw new Error(`${ctx.people.find((p) => p.id === id)?.name ?? id} isn't on the epic`);
+  const latest = latestStances(ctx.stances.filter((s) => s.itemId === item.id));
+  for (const [personId, stance] of latest) {
+    if (stance.value === "object" && !ids.includes(personId)) {
+      throw new Error(`${ctx.people.find((p) => p.id === personId)?.name ?? personId} objects. They stay asked until they resolve it.`);
+    }
+  }
   return { ...item, requiredStanceIds: ids };
 }

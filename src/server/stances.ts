@@ -10,8 +10,6 @@ import { changeWrites, citationWrites, eventWrite } from "./notebook";
 import { loadSnapshot } from "./snapshot";
 import type { ActionResult } from "./triage";
 
-const LOCKED_STATES = new Set(["ready", "exported"]);
-
 /** Records the person's own stance on a decision (CLAUDE.md rule 2: only people take stances). */
 export async function recordStanceAction(
   db: Db,
@@ -22,9 +20,6 @@ export async function recordStanceAction(
   const item = ctx.items.find((i) => i.id === input.itemId);
   const story = ctx.stories.find((s) => s.id === item?.parentId);
   if (!item || !story) return { status: "refused", reason: "Stances are for decisions on a story" };
-  if (LOCKED_STATES.has(story.state)) {
-    return { status: "refused", reason: `${story.key} is Ready. Edit it to reopen it before changing stances.` };
-  }
   let stance;
   try {
     stance = recordStance({ ctx, itemId: input.itemId, personId: input.actorId, value: input.value, reason: input.reason, now, id: randomUUID() });
@@ -69,9 +64,6 @@ export async function answerQuestionAction(
     r = answerQuestion({ ctx, itemId: input.itemId, text: input.text, asDecision: input.asDecision, actorId: input.actorId, now, newId: () => `x-${randomUUID().slice(0, 8)}` });
   } catch (e) {
     return { status: "refused", reason: e instanceof Error ? e.message : "Couldn't answer it" };
-  }
-  if (input.actorId !== r.story.leadId) {
-    return { status: "refused", reason: `${ctx.people.find((p) => p.id === r.story.leadId)?.name} is the lead. Suggest an answer in the notebook instead.` };
   }
   const plan = planChange(r.ops, r.story, ctx);
   if (plan.needsConfirmation && !input.confirmReopen) return { status: "needs_confirmation", warning: plan.warning };

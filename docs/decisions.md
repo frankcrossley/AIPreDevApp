@@ -157,17 +157,18 @@ Suggestions are Drafts rather than their own entity because they need exactly wh
 
 ## ADR-030 · Stories reach Ready through sign-off, not by agreeing on their own
 **Context.** The lifecycle has an `agreed` state between refinement and Ready. If a story moved to `agreed` by itself once its stances were in, any later answer or line would reopen it straight away.
-**Decision.** A story doesn't move to `agreed` automatically. The lead's sign-off takes it from `in_refinement` to `ready`, passing through `agreed` with that guard (ADR-015). The only route that changes a story's state is `POST /api/stories/:key/sign-off`, which calls the lifecycle's `signOffStory`; a static test fails the build if another route touches state.
+**Decision.** A story doesn't move to `agreed` automatically. The lead's sign-off takes it from `in_refinement` to `ready`, passing through `agreed` with that guard (ADR-015). Sign-off has two entry points: the server action the UI uses, and `POST /api/stories/:key/sign-off` for the API. Both call the lifecycle's `signOffStory` and nothing else changes state; reopening happens only through `reopenWrites` inside notebook changes (ADR-028). A static test scans every route and server action and fails the build if one touches story state without going through `src/server/lifecycle.ts`.
 **Consequence.** The team can keep answering and sourcing until the lead signs off. `agreed` stays available for bolt 8's session flow.
 
 ## ADR-031 · Stances, who's asked, and answering questions
 **Context.** "Only people take stances", and bolt 4 adds the controls.
-**Decision.** A person records their own stance (agree, concern or object) on a decision they were asked about, in its current round; an objection needs a reason. The lead changes who's asked. Stances can't change on a Ready or exported story: edit it to reopen it first. Answering a blocking question is lead-only: the answer goes in as a new line under the question (optionally as a decision, which then asks for its own stances) and the question is resolved. Everyone else suggests an answer through the notebook.
+**Decision.** A person records their own stance (agree, concern or object) on a decision they were asked about, in its current round; an objection needs a reason. The lead changes who's asked, choosing from the epic's members; someone with an unresolved objection stays asked until they resolve it. Neither stances nor who's asked can change on a Ready or exported story: edit it to reopen it first. These rules are in `src/domain/stances.ts`. Answering an open question (blocking or not) is lead-only: the answer goes in as a new line under the question (optionally as a decision, which then asks for its own stances) and the question is resolved. Everyone else suggests an answer through the notebook.
 **Consequence.** The demo path works entirely in the interface: the lead answers, the tech lead agrees, the lead answers the Architect, and the lead signs off.
 
 ## ADR-032 · Template checks and drift
 **Context.** "Floor checks can't be removed; team checks are yours", but someone has to own the team's checks.
 **Decision.** Product, the tech lead or the head of product can change a template's team checks, from Details → Edit checks. Floor checks are listed, ticked and locked. Changes are logged. A Ready or exported story whose checks now fail (because the template or the epic changed) shows "Ready · checks changed" and lists them; it doesn't revert on its own (ADR-015).
+Template changes apply at once to every story on the template (there is no per-story snapshot) and are logged against the template. On check lines, the short subject after each label ("downgrade mid-cycle", "Dan") comes from fixed word rules (`shortSubject`), not a model (ADR-006). A failing line links to its fix on the notebook; epic-level fixes (PRFAQ, read-backs, FAQ, promises) link to the epic at `/w/<epicKey>`; anything else falls back to the story title.
 **Consequence.** BILL-152 in the seed shows drift, which is honest about its data.
 
 ## ADR-033 · Answers cite what they answer
